@@ -42,7 +42,7 @@ export type KontrakAwal = {
   totalTonase: number;
   periodeMulai: Date | string;
   periodeSelesai: Date | string | null;
-  tarifShipperPerTon: number;
+  tarifShipperPerKg: number;
   ongkosSupirPerRit: number;
   status: string;
 };
@@ -79,7 +79,7 @@ export function FormKontrak({
       totalTonase: kontrak ? String(kontrak.totalTonase) : "",
       periodeMulai: format(kontrak?.periodeMulai ?? new Date(), TANGGAL_INPUT),
       periodeSelesai: kontrak?.periodeSelesai ? format(kontrak.periodeSelesai, TANGGAL_INPUT) : "",
-      tarifShipperPerTon: kontrak ? String(kontrak.tarifShipperPerTon) : "",
+      tarifShipperPerKg: kontrak ? String(kontrak.tarifShipperPerKg) : "",
       ongkosSupirPerRit: kontrak ? String(kontrak.ongkosSupirPerRit) : "",
       status: (kontrak?.status as StatusKontrak) ?? "AKTIF",
     },
@@ -251,17 +251,17 @@ export function FormKontrak({
         </Bidang>
 
         <Bidang
-          label="Tarif shipper per ton (Rp)"
-          galat={galat.tarifShipperPerTon?.message}
-          petunjuk="Pemasukan APN, dihitung dari netto bongkar"
+          label="Tarif shipper per kg (Rp)"
+          galat={galat.tarifShipperPerKg?.message}
+          petunjuk="Pemasukan APN, dihitung dari netto muat"
         >
           <Input
-            {...form.register("tarifShipperPerTon")}
+            {...form.register("tarifShipperPerKg")}
             type="number"
             min="0"
             step="1"
             className="angka"
-            placeholder="185000"
+            placeholder="280"
           />
         </Bidang>
 

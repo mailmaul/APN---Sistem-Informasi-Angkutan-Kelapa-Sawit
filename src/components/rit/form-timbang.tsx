@@ -42,6 +42,8 @@ export type IsiTimbang = {
   noTiket: string;
   bruto: string;
   tara: string;
+  /** Hanya dipakai sisi bongkar, saat tanda terima tidak memuat bruto/tara. */
+  netto: string;
   namaTimbangan: string;
   sumberAngka: SumberAngka;
   catatan: string;
@@ -55,31 +57,48 @@ const skemaIsi = z.object({
   noTiket: z.string(),
   bruto: z.string(),
   tara: z.string(),
+  netto: z.string(),
   namaTimbangan: z.string(),
   sumberAngka: z.enum(SUMBER_ANGKA),
   catatan: z.string(),
 });
 
-/** Seksi yang masih kosong dibiarkan lewat — admin boleh menyimpan sebagian. */
+/**
+ * Seksi yang masih kosong dibiarkan lewat — admin boleh menyimpan sebagian.
+ *
+ * Sisi muat wajib bruto & tara (bukti timbangan PKS selalu memuat keduanya).
+ * Sisi bongkar boleh netto saja, karena tanda terima gudang tujuan sering
+ * hanya mencantumkan netto.
+ */
 const skemaForm = z.object({ muat: skemaIsi, bongkar: skemaIsi }).superRefine((nilai, ctx) => {
   for (const jenis of ["muat", "bongkar"] as const) {
     const isi = nilai[jenis];
-    if (!isi.bruto.trim() && !isi.tara.trim()) continue;
+    const adaIsian = isi.bruto.trim() || isi.tara.trim() || (jenis === "bongkar" && isi.netto.trim());
+    if (!adaIsian) continue;
 
     const bruto = Number(isi.bruto);
     const tara = Number(isi.tara);
+    const netto = Number(isi.netto);
+    const pakaiBrutoTara = isi.bruto.trim() !== "" || isi.tara.trim() !== "";
+
     if (!isi.tanggal) {
       ctx.addIssue({ code: "custom", path: [jenis, "tanggal"], message: "Tanggal timbang wajib diisi" });
     }
-    if (!isi.bruto.trim() || !Number.isFinite(bruto) || bruto <= 0) {
-      ctx.addIssue({ code: "custom", path: [jenis, "bruto"], message: "Bruto wajib diisi" });
+
+    if (jenis === "muat" || pakaiBrutoTara) {
+      if (!isi.bruto.trim() || !Number.isFinite(bruto) || bruto <= 0) {
+        ctx.addIssue({ code: "custom", path: [jenis, "bruto"], message: "Bruto wajib diisi" });
+      }
+      if (!isi.tara.trim() || !Number.isFinite(tara) || tara <= 0) {
+        ctx.addIssue({ code: "custom", path: [jenis, "tara"], message: "Tara wajib diisi" });
+      }
+      if (bruto > 0 && tara > 0 && bruto <= tara) {
+        ctx.addIssue({ code: "custom", path: [jenis, "bruto"], message: "Bruto harus lebih besar dari tara" });
+      }
+    } else if (!Number.isFinite(netto) || netto <= 0) {
+      ctx.addIssue({ code: "custom", path: [jenis, "netto"], message: "Isi netto, atau bruto dan tara sekaligus" });
     }
-    if (!isi.tara.trim() || !Number.isFinite(tara) || tara <= 0) {
-      ctx.addIssue({ code: "custom", path: [jenis, "tara"], message: "Tara wajib diisi" });
-    }
-    if (bruto > 0 && tara > 0 && bruto <= tara) {
-      ctx.addIssue({ code: "custom", path: [jenis, "bruto"], message: "Bruto harus lebih besar dari tara" });
-    }
+
     if (isi.sumberAngka === "KONFIRMASI_MANUAL" && !isi.catatan.trim()) {
       ctx.addIssue({
         code: "custom",
@@ -95,6 +114,7 @@ const KOSONG: IsiTimbang = {
   noTiket: "",
   bruto: "",
   tara: "",
+  netto: "",
   namaTimbangan: "",
   sumberAngka: "SLIP",
   catatan: "",
@@ -122,7 +142,11 @@ function SeksiTimbang({
   const isi = form.watch(jenis);
   const bruto = angka(isi.bruto);
   const tara = angka(isi.tara);
-  const netto = bruto !== null && tara !== null ? hitungNetto(bruto, tara) : null;
+  // Sisi bongkar: kalau bruto & tara dikosongkan, netto diketik langsung
+  // karena tanda terima gudang tujuan sering hanya memuat angka itu.
+  const dariBrutoTara = bruto !== null && tara !== null;
+  const nettoManual = jenis === "bongkar" && !dariBrutoTara;
+  const netto = dariBrutoTara ? hitungNetto(bruto, tara) : nettoManual ? angka(isi.netto) : null;
   const taraAneh = tara !== null && taraBaku !== null && taraMencurigakan(tara, taraBaku);
 
   return (
@@ -171,15 +195,32 @@ function SeksiTimbang({
         <Bidang
           label="Netto (kg)"
           className="sm:col-span-2"
-          petunjuk="Dihitung otomatis dari bruto − tara, tidak bisa diketik"
+          galat={galat?.netto?.message}
+          petunjuk={
+            nettoManual
+              ? "Tanda terima hanya memuat netto — isi langsung di sini"
+              : "Dihitung otomatis dari bruto − tara, tidak bisa diketik"
+          }
         >
-          <Input
-            readOnly
-            tabIndex={-1}
-            value={netto === null ? "" : netto}
-            placeholder="—"
-            className="angka bg-muted/60 font-semibold"
-          />
+          {nettoManual ? (
+            <Input
+              {...form.register(`${jenis}.netto`)}
+              type="number"
+              min="0"
+              step="1"
+              className="angka font-semibold"
+              placeholder="0"
+              disabled={terkunci}
+            />
+          ) : (
+            <Input
+              readOnly
+              tabIndex={-1}
+              value={netto === null ? "" : netto}
+              placeholder="—"
+              className="angka bg-muted/60 font-semibold"
+            />
+          )}
         </Bidang>
         <Bidang label="Nama jembatan timbang" galat={galat?.namaTimbangan?.message}>
           <Input
@@ -241,7 +282,7 @@ export function FormTimbang({
   status,
   jenisBarang,
   taraBakuTruk,
-  tarifShipperPerTonSnapshot,
+  tarifShipperPerKgSnapshot,
   ongkosSupirPerRitSnapshot,
   awal,
 }: {
@@ -249,7 +290,7 @@ export function FormTimbang({
   status: StatusRit;
   jenisBarang: JenisBarang;
   taraBakuTruk: number | null;
-  tarifShipperPerTonSnapshot: number;
+  tarifShipperPerKgSnapshot: number;
   ongkosSupirPerRitSnapshot: number;
   awal: { muat: IsiTimbang | null; bongkar: IsiTimbang | null };
 }) {
@@ -270,29 +311,36 @@ export function FormTimbang({
     const t = angka(nilai.muat.tara);
     return b !== null && t !== null ? hitungNetto(b, t) : null;
   })();
+  // Tanda terima di gudang tujuan kerap hanya memuat netto. Kalau bruto &
+  // tara diisi, netto tetap dihitung dari keduanya supaya tidak bisa beda.
   const nettoBongkar = (() => {
     const b = angka(nilai.bongkar.bruto);
     const t = angka(nilai.bongkar.tara);
-    return b !== null && t !== null ? hitungNetto(b, t) : null;
+    if (b !== null && t !== null) return hitungNetto(b, t);
+    return angka(nilai.bongkar.netto);
   })();
 
   const hasil =
     nettoMuat !== null && nettoBongkar !== null
       ? hitungSelisih(nettoMuat, nettoBongkar, jenisBarang)
       : null;
-  const tagihan = nettoBongkar !== null ? hitungTagihanShipper(nettoBongkar, tarifShipperPerTonSnapshot) : null;
+  const tagihan = nettoMuat !== null ? hitungTagihanShipper(nettoMuat, tarifShipperPerKgSnapshot) : null;
   const lengkap = nettoMuat !== null && nettoBongkar !== null;
 
   const kirim = (selesaikan: boolean) =>
     form.handleSubmit(async (isian) => {
       const seksi = (jenis: Jenis) => {
         const s = isian[jenis];
-        if (!s.bruto.trim() || !s.tara.trim()) return null;
+        const adaBrutoTara = Boolean(s.bruto.trim() && s.tara.trim());
+        // Sisi bongkar boleh dikirim hanya dengan netto.
+        const adaNetto = jenis === "bongkar" && Boolean(s.netto.trim());
+        if (!adaBrutoTara && !adaNetto) return null;
         return {
           tanggal: s.tanggal,
           noTiket: s.noTiket,
-          bruto: s.bruto,
-          tara: s.tara,
+          bruto: adaBrutoTara ? s.bruto : null,
+          tara: adaBrutoTara ? s.tara : null,
+          ...(jenis === "bongkar" ? { netto: adaNetto ? s.netto : null } : {}),
           namaTimbangan: s.namaTimbangan,
           sumberAngka: s.sumberAngka,
           catatan: s.catatan,

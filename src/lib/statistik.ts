@@ -21,7 +21,7 @@ import { AMBANG_SLIP_JAM } from "./ambang";
 /** Bentuk minimal satu rit yang dibutuhkan untuk menghitung uang. */
 export type RitUang = {
   jenisBarang: string;
-  tarifShipperPerTonSnapshot: number;
+  tarifShipperPerKgSnapshot: number;
   ongkosSupirPerRitSnapshot: number;
   ongkosSupir: number | null;
   nilaiSelisih: number | null;
@@ -66,8 +66,8 @@ export function ringkasUangRit(rit: RitUang): UangRit {
   const klaim = rit.klaim && rit.klaim.status !== "DITOLAK" ? rit.klaim.nominal : 0;
 
   const ringkas = hitungMargin({
-    nettoBongkarKg,
-    tarifShipperPerTon: rit.tarifShipperPerTonSnapshot,
+    nettoMuatKg,
+    tarifShipperPerKg: rit.tarifShipperPerKgSnapshot,
     // Ongkos yang sudah dibekukan saat rit ditutup dipakai apa adanya;
     // kalau belum, pakai snapshot borongan dari DO.
     ongkosSupirPerRit: rit.ongkosSupir ?? rit.ongkosSupirPerRitSnapshot,
@@ -113,7 +113,7 @@ type RitTerambil = {
   penimbangan: { jenis: string; netto: number }[];
   biaya: { jenis: string; nominal: number }[];
   klaim: { nominal: number; status: string } | null;
-  tarifShipperPerTonSnapshot: number;
+  tarifShipperPerKgSnapshot: number;
   ongkosSupirPerRitSnapshot: number;
   ongkosSupir: number | null;
   nilaiSelisih: number | null;
@@ -265,7 +265,7 @@ export async function hitungStatistikDasbor(sekarang = new Date()): Promise<Stat
       where: { status: "SELESAI", selesaiBongkar: { gte: awal, lt: akhir } },
       select: {
         selesaiBongkar: true,
-        tarifShipperPerTonSnapshot: true,
+        tarifShipperPerKgSnapshot: true,
         ongkosSupirPerRitSnapshot: true,
         ongkosSupir: true,
         nilaiSelisih: true,

@@ -38,18 +38,30 @@ export async function POST(req: NextRequest, { params }: Konteks) {
     );
   }
 
-  const nettoMuat = muat ? hitungNetto(muat.bruto, muat.tara) : null;
-  const nettoBongkar = bongkar ? hitungNetto(bongkar.bruto, bongkar.tara) : null;
-
-  const simpan = async (jenis: "MUAT" | "BONGKAR", isi: NonNullable<typeof muat>, netto: number) =>
-    db.penimbangan.upsert({
-      where: { ritId_jenis: { ritId: id, jenis } },
-      create: { ...isi, netto, jenis, ritId: id, dibuatOlehId: sesi.sub },
-      update: { ...isi, netto, dibuatOlehId: sesi.sub },
+  // Sisi muat: netto selalu dihitung dari bruto − tara, angka netto dari
+  // klien sengaja diabaikan. Sisi bongkar: kalau bruto & tara ada netto tetap
+  // dihitung; kalau tanda terima hanya memuat netto, angka netto itu dipakai.
+  if (muat) {
+    const netto = hitungNetto(muat.bruto, muat.tara);
+    await db.penimbangan.upsert({
+      where: { ritId_jenis: { ritId: id, jenis: "MUAT" } },
+      create: { ...muat, netto, jenis: "MUAT", ritId: id, dibuatOlehId: sesi.sub },
+      update: { ...muat, netto, dibuatOlehId: sesi.sub },
     });
+  }
 
-  if (muat && nettoMuat !== null) await simpan("MUAT", muat, nettoMuat);
-  if (bongkar && nettoBongkar !== null) await simpan("BONGKAR", bongkar, nettoBongkar);
+  if (bongkar) {
+    const { netto: nettoDiinput, ...sisa } = bongkar;
+    const netto =
+      sisa.bruto != null && sisa.tara != null ? hitungNetto(sisa.bruto, sisa.tara) : nettoDiinput;
+    if (netto == null) return galat("Netto bongkar tidak bisa ditentukan");
+
+    await db.penimbangan.upsert({
+      where: { ritId_jenis: { ritId: id, jenis: "BONGKAR" } },
+      create: { ...sisa, netto, jenis: "BONGKAR", ritId: id, dibuatOlehId: sesi.sub },
+      update: { ...sisa, netto, dibuatOlehId: sesi.sub },
+    });
+  }
 
   // Baca ulang supaya pasangan muat/bongkar yang dipakai menghitung selalu
   // angka yang benar-benar tersimpan, bukan campuran body dan data lama.
@@ -82,7 +94,9 @@ export async function POST(req: NextRequest, { params }: Konteks) {
     barisBongkar.netto,
     rit.kontrak.jenisBarang as JenisBarang,
   );
-  const tagihanShipper = hitungTagihanShipper(barisBongkar.netto, rit.tarifShipperPerTonSnapshot);
+  // Tagihan memakai netto MUAT: invoice ke shipper menagih tonase yang
+  // dimuat di PKS, sedangkan susut di jalan diselesaikan lewat klaim.
+  const tagihanShipper = hitungTagihanShipper(barisMuat.netto, rit.tarifShipperPerKgSnapshot);
 
   const final = await db.rit.update({
     where: { id },

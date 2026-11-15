@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       catatan,
       status,
       // WAJIB: tarif dibekukan di sini. Kontrak boleh berubah nanti, rit ini tidak.
-      tarifShipperPerTonSnapshot: kontrak.tarifShipperPerTon,
+      tarifShipperPerKgSnapshot: kontrak.tarifShipperPerKg,
       ongkosSupirPerRitSnapshot: kontrak.ongkosSupirPerRit,
       riwayatStatus: {
         create: {

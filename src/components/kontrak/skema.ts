@@ -24,7 +24,7 @@ export const skemaKontrak = z.object({
     .union([z.coerce.date(), z.literal(""), z.null()])
     .nullish()
     .transform((v) => (v instanceof Date ? v : null)),
-  tarifShipperPerTon: z.coerce
+  tarifShipperPerKg: z.coerce
     .number()
     .int("Tarif shipper harus bilangan bulat rupiah")
     .nonnegative("Tarif shipper tidak boleh negatif"),
@@ -49,7 +49,7 @@ export type IsianKontrak = {
   totalTonase: string;
   periodeMulai: string;
   periodeSelesai: string;
-  tarifShipperPerTon: string;
+  tarifShipperPerKg: string;
   ongkosSupirPerRit: string;
   status: StatusKontrak;
 };

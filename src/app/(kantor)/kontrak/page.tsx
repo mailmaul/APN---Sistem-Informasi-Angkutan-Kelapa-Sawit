@@ -76,7 +76,7 @@ export default async function HalamanKontrak({
               <TableHead>Rute</TableHead>
               <TableHead>Periode</TableHead>
               <TableHead className="w-56">Realisasi</TableHead>
-              <TableHead className="text-right">Tarif/ton</TableHead>
+              <TableHead className="text-right">Tarif/kg</TableHead>
               <TableHead className="text-right">Ongkos/rit</TableHead>
               <TableHead className="text-right">DO</TableHead>
               <TableHead>Status</TableHead>
@@ -131,7 +131,7 @@ export default async function HalamanKontrak({
                       totalTonase={k.totalTonase}
                     />
                   </TableCell>
-                  <TableCell className="angka text-right">{formatRupiah(k.tarifShipperPerTon)}</TableCell>
+                  <TableCell className="angka text-right">{formatRupiah(k.tarifShipperPerKg)}</TableCell>
                   <TableCell className="angka text-right">{formatRupiah(k.ongkosSupirPerRit)}</TableCell>
                   <TableCell className="angka text-right">{k._count.rit}</TableCell>
                   <TableCell>

@@ -72,7 +72,7 @@ export default async function HalamanTerbitkanDo({
                 jenisBarang: k.jenisBarang,
                 rute: `${k.lokasiAsal.nama} → ${k.lokasiTujuan.nama}`,
                 totalTonase: k.totalTonase,
-                tarifShipperPerTon: k.tarifShipperPerTon,
+                tarifShipperPerKg: k.tarifShipperPerKg,
                 ongkosSupirPerRit: k.ongkosSupirPerRit,
               }))}
               truk={truk.map((t) => ({

@@ -79,13 +79,16 @@ export default async function HalamanDetailRit({ params }: { params: Promise<{ i
   const muat = rit.penimbangan.find((p) => p.jenis === "MUAT") ?? null;
   const bongkar = rit.penimbangan.find((p) => p.jenis === "BONGKAR") ?? null;
 
+  // Bruto & tara bisa kosong untuk sisi bongkar, jadi dikosongkan sebagai
+  // string dan netto tersimpan ikut dibawa supaya bisa disunting ulang.
   const keIsi = (p: typeof muat): IsiTimbang | null =>
     p
       ? {
           tanggal: format(p.tanggal, "yyyy-MM-dd"),
           noTiket: p.noTiket ?? "",
-          bruto: String(p.bruto),
-          tara: String(p.tara),
+          bruto: p.bruto === null ? "" : String(p.bruto),
+          tara: p.tara === null ? "" : String(p.tara),
+          netto: String(p.netto),
           namaTimbangan: p.namaTimbangan ?? "",
           sumberAngka: p.sumberAngka as SumberAngka,
           catatan: p.catatan ?? "",
@@ -94,8 +97,8 @@ export default async function HalamanDetailRit({ params }: { params: Promise<{ i
 
   const totalBiaya = rit.biaya.reduce((t, b) => t + b.nominal, 0);
   const margin = hitungMargin({
-    nettoBongkarKg: bongkar?.netto ?? 0,
-    tarifShipperPerTon: rit.tarifShipperPerTonSnapshot,
+    nettoMuatKg: muat?.netto ?? 0,
+    tarifShipperPerKg: rit.tarifShipperPerKgSnapshot,
     ongkosSupirPerRit: rit.ongkosSupirPerRitSnapshot,
     totalBiaya,
     klaimShipper: rit.klaim?.nominal ?? 0,
@@ -257,7 +260,7 @@ export default async function HalamanDetailRit({ params }: { params: Promise<{ i
               status={status}
               jenisBarang={rit.kontrak.jenisBarang as JenisBarang}
               taraBakuTruk={rit.truk?.taraBaku ?? null}
-              tarifShipperPerTonSnapshot={rit.tarifShipperPerTonSnapshot}
+              tarifShipperPerKgSnapshot={rit.tarifShipperPerKgSnapshot}
               ongkosSupirPerRitSnapshot={rit.ongkosSupirPerRitSnapshot}
               awal={{ muat: keIsi(muat), bongkar: keIsi(bongkar) }}
             />
@@ -355,7 +358,7 @@ export default async function HalamanDetailRit({ params }: { params: Promise<{ i
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
                 Dihitung dari tarif snapshot DO ini:{" "}
-                <span className="angka">{formatRupiah(rit.tarifShipperPerTonSnapshot)}/ton</span> dan{" "}
+                <span className="angka">{formatRupiah(rit.tarifShipperPerKgSnapshot)}/kg</span> dan{" "}
                 <span className="angka">{formatRupiah(rit.ongkosSupirPerRitSnapshot)}/rit</span>.
               </p>
               {status !== "SELESAI" && (

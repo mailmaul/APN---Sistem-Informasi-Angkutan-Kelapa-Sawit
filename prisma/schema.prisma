@@ -91,7 +91,9 @@ model Kontrak {
 
   // Tarif berlaku saat ini. Nilai ini DISALIN ke Rit waktu DO terbit supaya
   // perubahan tarif tidak mengubah rit yang sudah berjalan/selesai.
-  tarifShipperPerTon Int // rupiah per ton, pemasukan APN
+  // Rupiah per KG (bukan per ton): surat SA dari shipper menuliskan ongkos
+  // angkut per kg, dan invoice yang berjalan memakai satuan itu.
+  tarifShipperPerKg Int
   ongkosSupirPerRit  Int // rupiah borongan per rit, biaya APN
 
   createdById String
@@ -120,7 +122,7 @@ model Rit {
   status        String   @default("DITERBITKAN")
 
   // Snapshot tarif saat DO terbit — jangan pernah dibaca ulang dari Kontrak.
-  tarifShipperPerTonSnapshot Int
+  tarifShipperPerKgSnapshot  Int
   ongkosSupirPerRitSnapshot  Int
 
   // Checkpoint waktu. Selisih tiba→selesai = lama antri + proses.
@@ -161,16 +163,22 @@ model Rit {
   @@index([tanggalTerbit])
 }
 
-/// Slip timbang. Netto TIDAK PERNAH diinput manual — selalu bruto - tara.
+/// Slip timbang.
+///
+/// Sisi MUAT memakai bukti timbangan PKS yang memuat bruto/tara/netto.
+/// Sisi BONGKAR sering hanya berupa tanda terima bertulis tangan yang
+/// mencantumkan netto saja — karena itu bruto & tara opsional, sedangkan
+/// netto selalu ada. Kalau bruto & tara diisi, netto wajib sama dengan
+/// selisihnya (divalidasi di route, bukan di basis data).
 model Penimbangan {
   id            String   @id @default(cuid())
   ritId         String
   jenis         String // MUAT | BONGKAR
   tanggal       DateTime
   noTiket       String?
-  bruto         Int // kg
-  tara          Int // kg
-  netto         Int // kg, hasil hitung
+  bruto         Int? // kg, kosong kalau slip tujuan hanya memuat netto
+  tara          Int? // kg, idem
+  netto         Int // kg
   namaTimbangan String?
   sumberAngka   String   @default("SLIP") // SLIP | KONFIRMASI_MANUAL
   catatan       String?
