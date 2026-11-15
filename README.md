@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# APN — Sistem Informasi Angkutan Kelapa Sawit
 
-## Getting Started
+Pencatatan kontrak, DO, penimbangan, armada, dan bayaran supir untuk jasa
+angkutan **Palm Kernel** & **Palm Shell**.
 
-First, run the development server:
+Spesifikasi bisnis lengkap (aturan, mesin status, model data, arah UI) ada di
+**[`docs/SPEC.md`](docs/SPEC.md)** — baca itu dulu sebelum mengubah logika.
+
+## Tiga peran
+
+| Peran | Yang dikerjakan |
+|---|---|
+| **Owner** | Semua akses + seluruh laporan & margin |
+| **Admin kantor** | Master data, kontrak, DO, alokasi armada, input angka timbang, settlement |
+| **Supir** | Lihat tugas, ubah status, unggah foto slip, lapor kendala — tidak pernah melihat angka rupiah |
+
+## Aturan yang paling mudah dilanggar
+
+1. **Netto tidak pernah diinput manual** — selalu `hitungNetto(bruto, tara)`.
+2. **Snapshot tarif**: saat DO terbit, tarif kontrak disalin ke kolom
+   `...Snapshot` di Rit. Laporan membaca snapshot, bukan tarif kontrak terkini —
+   kalau tidak, mengubah tarif akan diam-diam mengubah laporan bulan lalu.
+3. **Supir dibayar borongan per rit.** Selisih berat tidak memotong bayarannya;
+   selisih hanya dicatat sebagai kerugian perusahaan.
+4. Toleransi selisih 20 kg, **hanya kelebihannya** yang dinilai.
+
+Semua rumus tinggal di `src/lib/perhitungan.ts`, semua status/label di
+`src/lib/constants.ts`. Jangan menyalin rumus atau menulis string status
+literal di tempat lain.
+
+## Menjalankan secara lokal
 
 ```bash
+npm install
+cp .env.example .env          # lalu isi SESSION_SECRET & UPLOAD_DIR
+mkdir -p uploads
+npx prisma migrate dev        # buat database + jalankan migrasi
+npm run seed                  # akun awal, 16 truk, lokasi, shipper
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka `http://localhost:3000/apn` (perhatikan subpath `/apn` dari
+`next.config.ts` — kosongkan `basePath` kalau mau di root).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Akun seed, semua berpassword `admin123` — **ganti sebelum dipakai sungguhan**:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Peran | Nomor HP |
+|---|---|
+| Owner | `081200000000` |
+| Admin | `081200000001` |
+| Supir | `081311110001` … `081311110003` |
 
-## Learn More
+## Tumpukan teknologi
 
-To learn more about Next.js, take a look at the following resources:
+Next.js 16 (App Router) · TypeScript · Tailwind v4 · shadcn/ui · Prisma 6 +
+SQLite · sesi JWT HS256 via `jose` · Leaflet · Recharts · TanStack Table ·
+PWA + Web Push.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Catatan deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Jalan sebagai `next start` di belakang nginx pada subpath `/apn`.
 
-## Deploy on Vercel
+**Jangan pernah** menambahkan `output: "standalone"` di `next.config.ts` —
+prosesnya dijalankan dengan `next start`, dan mencampur keduanya merusak
+konteks request sampai sesi terbaca null.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Nginx perlu melonggarkan `Permissions-Policy` untuk `camera` dan `geolocation`
+di lokasi `/apn`, karena supir memotret slip timbang dan posisinya dilacak.

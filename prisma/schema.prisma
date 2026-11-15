@@ -1,0 +1,306 @@
+// APN — model data.
+//
+// Lihat docs/SPEC.md untuk aturan bisnis yang dipetakan ke skema ini.
+//
+// Catatan konvensi:
+// - SQLite tidak mendukung enum Prisma, jadi semua "enum" disimpan sebagai
+//   String dan nilainya dikunci lewat konstanta di src/lib/constants.ts.
+// - Berat selalu Int dalam KILOGRAM (bukan float) supaya tidak ada galat
+//   pembulatan pada angka yang dipakai menghitung uang.
+// - Uang selalu Int dalam RUPIAH penuh (tanpa sen).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Owner, admin kantor, dan supir. Login pakai nomor HP.
+model User {
+  id           String   @id @default(cuid())
+  nama         String
+  hp           String   @unique
+  passwordHash String
+  peran        String // OWNER | ADMIN | SUPIR
+  aktif        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  ritSebagaiSupir Rit[]              @relation("SupirRit")
+  kontrakDibuat   Kontrak[]          @relation("KontrakPembuat")
+  penimbangan     Penimbangan[]
+  fotoDiupload    Foto[]
+  riwayatStatus   RiwayatStatus[]
+  settlement      Settlement[]
+  pushSubs        PushSubscription[]
+
+  @@index([peran, aktif])
+}
+
+model Truk {
+  id        String   @id @default(cuid())
+  nopol     String   @unique
+  taraBaku  Int // kg, pembanding untuk mendeteksi salah ketik tara
+  kapasitas Int // kg
+  aktif     Boolean  @default(true)
+  catatan   String?
+  createdAt DateTime @default(now())
+
+  rit Rit[]
+}
+
+model Shipper {
+  id        String   @id @default(cuid())
+  nama      String
+  kontak    String?
+  alamat    String?
+  aktif     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  kontrak Kontrak[]
+}
+
+model Lokasi {
+  id        String   @id @default(cuid())
+  nama      String
+  alamat    String?
+  lat       Float?
+  lng       Float?
+  jenis     String // ASAL | TUJUAN | KEDUANYA
+  aktif     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  kontrakAsal   Kontrak[] @relation("KontrakAsal")
+  kontrakTujuan Kontrak[] @relation("KontrakTujuan")
+}
+
+/// SPK / kontrak kerja dari shipper. Satu kontrak diturunkan jadi banyak Rit.
+model Kontrak {
+  id             String    @id @default(cuid())
+  noSpk          String    @unique
+  shipperId      String
+  jenisBarang    String // PALM_KERNEL | PALM_SHELL | BESI
+  lokasiAsalId   String
+  lokasiTujuanId String
+  totalTonase    Float // ton
+  periodeMulai   DateTime
+  periodeSelesai DateTime?
+  status         String    @default("AKTIF") // AKTIF | SELESAI | DIBATALKAN
+
+  // Tarif berlaku saat ini. Nilai ini DISALIN ke Rit waktu DO terbit supaya
+  // perubahan tarif tidak mengubah rit yang sudah berjalan/selesai.
+  tarifShipperPerTon Int // rupiah per ton, pemasukan APN
+  ongkosSupirPerRit  Int // rupiah borongan per rit, biaya APN
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  shipper      Shipper @relation(fields: [shipperId], references: [id])
+  lokasiAsal   Lokasi  @relation("KontrakAsal", fields: [lokasiAsalId], references: [id])
+  lokasiTujuan Lokasi  @relation("KontrakTujuan", fields: [lokasiTujuanId], references: [id])
+  createdBy    User    @relation("KontrakPembuat", fields: [createdById], references: [id])
+
+  rit Rit[]
+
+  @@index([status])
+  @@index([shipperId])
+}
+
+/// Satu DO = satu rit = satu truk. Inti transaksi sistem.
+model Rit {
+  id            String   @id @default(cuid())
+  noDo          String   @unique
+  kontrakId     String
+  trukId        String?
+  supirId       String?
+  tanggalTerbit DateTime @default(now())
+  status        String   @default("DITERBITKAN")
+
+  // Snapshot tarif saat DO terbit — jangan pernah dibaca ulang dari Kontrak.
+  tarifShipperPerTonSnapshot Int
+  ongkosSupirPerRitSnapshot  Int
+
+  // Checkpoint waktu. Selisih tiba→selesai = lama antri + proses.
+  tibaMuat       DateTime?
+  selesaiMuat    DateTime?
+  tibaBongkar    DateTime?
+  selesaiBongkar DateTime?
+
+  // Hasil perhitungan, dibekukan saat rit diselesaikan admin.
+  selisihKg     Int? // positif = barang berkurang, negatif = bertambah
+  kelebihanKg   Int? // setelah dikurangi toleransi 20 kg
+  nilaiSelisih  Int? // rupiah, kerugian perusahaan
+  tagihanShipper Int?
+  ongkosSupir    Int?
+
+  slipFisikDiterima Boolean   @default(false)
+  slipFisikTanggal  DateTime?
+
+  alasanBatal String?
+  catatan     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  kontrak       Kontrak         @relation(fields: [kontrakId], references: [id])
+  truk          Truk?           @relation(fields: [trukId], references: [id])
+  supir         User?           @relation("SupirRit", fields: [supirId], references: [id])
+  penimbangan   Penimbangan[]
+  foto          Foto[]
+  titikGps      TitikGps[]
+  riwayatStatus RiwayatStatus[]
+  biaya         Biaya[]
+  kendala       Kendala[]
+  klaim         Klaim?
+
+  @@index([status])
+  @@index([supirId, status])
+  @@index([kontrakId])
+  @@index([tanggalTerbit])
+}
+
+/// Slip timbang. Netto TIDAK PERNAH diinput manual — selalu bruto - tara.
+model Penimbangan {
+  id            String   @id @default(cuid())
+  ritId         String
+  jenis         String // MUAT | BONGKAR
+  tanggal       DateTime
+  noTiket       String?
+  bruto         Int // kg
+  tara          Int // kg
+  netto         Int // kg, hasil hitung
+  namaTimbangan String?
+  sumberAngka   String   @default("SLIP") // SLIP | KONFIRMASI_MANUAL
+  catatan       String?
+  dibuatOlehId  String
+  createdAt     DateTime @default(now())
+
+  rit       Rit  @relation(fields: [ritId], references: [id], onDelete: Cascade)
+  dibuatOleh User @relation(fields: [dibuatOlehId], references: [id])
+
+  @@unique([ritId, jenis])
+}
+
+model Foto {
+  id             String   @id @default(cuid())
+  ritId          String
+  jenis          String // SLIP_MUAT | SLIP_BONGKAR | KENDALA | LAIN
+  url            String
+  lat            Float?
+  lng            Float?
+  waktu          DateTime @default(now())
+  diuploadOlehId String
+
+  rit          Rit  @relation(fields: [ritId], references: [id], onDelete: Cascade)
+  diuploadOleh User @relation(fields: [diuploadOlehId], references: [id])
+
+  @@index([ritId, jenis])
+}
+
+model TitikGps {
+  id      String   @id @default(cuid())
+  ritId   String
+  lat     Float
+  lng     Float
+  waktu   DateTime @default(now())
+  leg     String // MENUJU_MUAT | MENUJU_BONGKAR
+  akurasi Float?
+
+  rit Rit @relation(fields: [ritId], references: [id], onDelete: Cascade)
+
+  @@index([ritId, waktu])
+}
+
+/// Jejak audit setiap perpindahan status, lengkap dengan lokasi saat ditekan.
+model RiwayatStatus {
+  id      String   @id @default(cuid())
+  ritId   String
+  dari    String?
+  ke      String
+  olehId  String
+  waktu   DateTime @default(now())
+  lat     Float?
+  lng     Float?
+  catatan String?
+
+  rit  Rit  @relation(fields: [ritId], references: [id], onDelete: Cascade)
+  oleh User @relation(fields: [olehId], references: [id])
+
+  @@index([ritId, waktu])
+}
+
+model Biaya {
+  id      String   @id @default(cuid())
+  ritId   String
+  jenis   String // BBM | UANG_MAKAN | LAIN
+  nominal Int // rupiah
+  tanggal DateTime @default(now())
+  catatan String?
+
+  rit Rit @relation(fields: [ritId], references: [id], onDelete: Cascade)
+
+  @@index([ritId])
+}
+
+model Kendala {
+  id            String    @id @default(cuid())
+  ritId         String
+  jenis         String // MOGOK | KECELAKAAN | ANTRIAN | SLIP_BERMASALAH | LAIN
+  waktu         DateTime  @default(now())
+  lat           Float?
+  lng           Float?
+  catatan       String
+  fotoUrl       String?
+  penyelesaian  String?
+  selesaiPada   DateTime?
+
+  rit Rit @relation(fields: [ritId], references: [id], onDelete: Cascade)
+
+  @@index([ritId])
+}
+
+/// Tuntutan ganti rugi dari shipper atas barang yang kurang.
+model Klaim {
+  id      String   @id @default(cuid())
+  ritId   String   @unique
+  nominal Int // rupiah
+  tanggal DateTime @default(now())
+  status  String   @default("DIAJUKAN") // DIAJUKAN | DISETUJUI | DITOLAK | LUNAS
+  catatan String?
+
+  rit Rit @relation(fields: [ritId], references: [id], onDelete: Cascade)
+}
+
+/// Rekap bulanan bayaran supir. Ongkos borongan x jumlah rit SELESAI.
+model Settlement {
+  id          String    @id @default(cuid())
+  supirId     String
+  bulan       String // format YYYY-MM
+  jumlahRit   Int
+  totalOngkos Int // rupiah
+  status      String    @default("DRAFT") // DRAFT | FINAL | DIBAYAR
+  dibayarPada DateTime?
+  catatan     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  supir User @relation(fields: [supirId], references: [id])
+
+  @@unique([supirId, bulan])
+  @@index([bulan])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
