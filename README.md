@@ -42,6 +42,16 @@ npm run dev
 Buka `http://localhost:3000/apn` (perhatikan subpath `/apn` dari
 `next.config.ts` — kosongkan `basePath` kalau mau di root).
 
+### Data demo untuk presentasi
+
+```bash
+npm run dummy
+```
+
+Mengisi ~2,5 bulan operasi 16 truk: 400+ rit, slip timbang bergambar, jejak
+GPS, kendala, klaim, dan settlement bulanan. **Menghapus seluruh data
+transaksi yang ada** — lihat [`apn-dummy/README.md`](apn-dummy/README.md).
+
 Akun seed, semua berpassword `admin123` — **ganti sebelum dipakai sungguhan**:
 
 | Peran | Nomor HP |

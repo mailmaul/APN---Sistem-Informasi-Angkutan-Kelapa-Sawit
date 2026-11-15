@@ -340,17 +340,29 @@ export default async function HalamanDetailRit({ params }: { params: Promise<{ i
               <Separator />
               <div className="flex items-baseline justify-between gap-3 pt-1">
                 <span className="text-xs font-medium">Margin rit</span>
-                <span
-                  className={`angka text-base font-semibold ${margin.margin >= 0 ? "text-sukses" : "text-bahaya"}`}
-                >
-                  {formatRupiah(margin.margin)}
-                </span>
+                {status === "SELESAI" ? (
+                  <span
+                    className={`angka text-base font-semibold ${margin.margin >= 0 ? "text-sukses" : "text-bahaya"}`}
+                  >
+                    {formatRupiah(margin.margin)}
+                  </span>
+                ) : (
+                  // Sebelum rit selesai, tagihan masih nol sementara BBM & uang
+                  // makan sudah keluar — menampilkan selisihnya sebagai margin
+                  // merah besar menyesatkan, padahal rit belum tentu rugi.
+                  <span className="text-xs text-muted-foreground">Belum final</span>
+                )}
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
                 Dihitung dari tarif snapshot DO ini:{" "}
                 <span className="angka">{formatRupiah(rit.tarifShipperPerTonSnapshot)}/ton</span> dan{" "}
                 <span className="angka">{formatRupiah(rit.ongkosSupirPerRitSnapshot)}/rit</span>.
               </p>
+              {status !== "SELESAI" && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Margin dihitung setelah angka timbang bongkar dimasukkan.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
