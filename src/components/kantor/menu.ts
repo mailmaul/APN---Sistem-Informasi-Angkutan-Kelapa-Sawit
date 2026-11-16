@@ -10,6 +10,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Peran } from "@/lib/constants";
+  Smartphone,
+      { href: "/aplikasi-supir", label: "Aplikasi Supir", icon: Smartphone },
 
 // Satu daftar menu dipakai sidebar desktop, sheet mobile, dan judul header.
 // Menambah halaman kantor = menambah satu baris di sini.
