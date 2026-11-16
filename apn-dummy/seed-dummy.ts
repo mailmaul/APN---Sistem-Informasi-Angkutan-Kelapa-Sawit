@@ -2,7 +2,13 @@ import { PrismaClient, type User, type Truk, type Shipper, type Lokasi, type Kon
 import bcrypt from "bcryptjs";
 import path from "node:path";
 import { rm } from "node:fs/promises";
-import { hitungNetto, hitungSelisih, hitungTagihanShipper } from "../src/lib/perhitungan";
+import {
+  hitungBayaranRit,
+  hitungNetto,
+  hitungPotonganSupir,
+  hitungSelisih,
+  hitungTagihanShipper,
+} from "../src/lib/perhitungan";
 import { TOLERANSI_SELISIH_KG, type JenisBarang } from "../src/lib/constants";
 import { SHIPPER, LOKASI, TRUK, SUPIR, KANTOR, TIMBANGAN, CATATAN_KENDALA } from "./data";
 import { buatBerkasSlip } from "./slip";
@@ -268,6 +274,8 @@ function berat(kapasitas: number, taraBaku: number) {
 
 async function buatRit(m: Master, kontrak: Kontrak[]) {
   const admin = m.kantor.find((k) => k.peran === "ADMIN") ?? m.kantor[0];
+  // Pemaafan potongan hanya boleh oleh owner, jadi penulisnya harus owner.
+  const owner = m.kantor.find((k) => k.peran === "OWNER") ?? m.kantor[0];
   let nomor = 0;
   let slipDibuat = 0;
   const hitungStatus: Record<string, number> = {};
@@ -326,6 +334,11 @@ async function buatRit(m: Master, kontrak: Kontrak[]) {
       const b = berat(truk.kapasitas, truk.taraBaku);
       const selesai = status === "SELESAI";
       const hasil = hitungSelisih(b.nettoMuat, b.nettoBongkar, k.jenisBarang as JenisBarang);
+      // Sebagian kecil potongan dimaafkan owner supaya alur pemaafan punya
+      // contoh nyata saat didemokan.
+      const dimaafkan = selesai && hasil.nilaiSelisih > 0 && hasil.selisihKg > 0 && acak() < 0.15;
+      const pemaafan = dimaafkan ? hasil.nilaiSelisih : 0;
+      const potongan = selesai ? hitungPotonganSupir(hasil, pemaafan) : 0;
 
       const rit = await db.rit.create({
         data: {
@@ -345,7 +358,14 @@ async function buatRit(m: Master, kontrak: Kontrak[]) {
           kelebihanKg: selesai ? hasil.kelebihanKg : null,
           nilaiSelisih: selesai ? hasil.nilaiSelisih : null,
           tagihanShipper: selesai ? hitungTagihanShipper(b.nettoMuat, k.tarifShipperPerKg) : null,
-          ongkosSupir: selesai ? k.ongkosSupirPerRit : null,
+          potonganSupir: selesai ? potongan : null,
+          pemaafanPotongan: pemaafan,
+          alasanPemaafan: dimaafkan
+            ? "Selisih akibat timbangan tujuan sedang bermasalah, sudah dikonfirmasi operator."
+            : null,
+          dimaafkanOlehId: dimaafkan ? owner.id : null,
+          dimaafkanPada: dimaafkan ? new Date(selesaiBongkar.getTime() + HARI_MS) : null,
+          ongkosSupir: selesai ? hitungBayaranRit(k.ongkosSupirPerRit, potongan) : null,
           slipFisikDiterima: selesai && acak() < 0.8,
           slipFisikTanggal: selesai && acak() < 0.8 ? new Date(selesaiBongkar.getTime() + 2 * HARI_MS) : null,
           alasanBatal: status === "DIBATALKAN" ? pilih(["Muatan dialihkan ke kontrak lain", "Pabrik asal menunda pengiriman", "Truk dialihkan ke rit mendesak"]) : null,
@@ -498,17 +518,19 @@ async function buatSettlement(m: Master) {
     for (const supir of m.supir) {
       const rit = await db.rit.findMany({
         where: { supirId: supir.id, status: "SELESAI", selesaiBongkar: { gte: awal, lt: akhir } },
-        select: { ongkosSupirPerRitSnapshot: true },
+        select: { ongkosSupirPerRitSnapshot: true, potonganSupir: true },
       });
       if (rit.length === 0) continue;
 
       // Jumlahkan snapshot tiap rit — tarif bisa berbeda antar kontrak, jadi
       // tidak boleh dikali rata dengan satu tarif saja.
       const totalOngkos = rit.reduce((j, r) => j + r.ongkosSupirPerRitSnapshot, 0);
+      const totalPotongan = rit.reduce((j, r) => j + (r.potonganSupir ?? 0), 0);
 
       await db.settlement.create({
         data: {
-          supirId: supir.id, bulan: b.bulan, jumlahRit: rit.length, totalOngkos, status: b.status,
+          supirId: supir.id, bulan: b.bulan, jumlahRit: rit.length, totalOngkos, totalPotongan,
+          status: b.status,
           dibayarPada: b.status === "DIBAYAR" ? new Date(tahun, bln, 5) : null,
         },
       });

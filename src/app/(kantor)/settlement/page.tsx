@@ -23,6 +23,8 @@ export default async function HalamanSettlement({
     hp: b.hp,
     jumlahRit: b.jumlahRit,
     totalOngkos: b.totalOngkos,
+    totalPotongan: b.totalPotongan,
+    totalBayar: b.totalBayar,
     tersimpan: b.tersimpan,
     selaras: b.selaras,
   }));

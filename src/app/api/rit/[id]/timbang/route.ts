@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { galat, wajibKantor } from "@/lib/api-auth";
-import { hitungNetto, hitungSelisih, hitungTagihanShipper } from "@/lib/perhitungan";
+import { hitungBayaranRit, hitungNetto, hitungPotonganSupir, hitungSelisih, hitungTagihanShipper } from "@/lib/perhitungan";
 import type { JenisBarang, StatusRit } from "@/lib/constants";
 import { skemaTimbang } from "@/components/rit/skema";
 
@@ -26,7 +26,10 @@ export async function POST(req: NextRequest, { params }: Konteks) {
 
   const rit = await db.rit.findUnique({
     where: { id },
-    include: { kontrak: { select: { jenisBarang: true } }, penimbangan: true },
+    include: {
+      kontrak: { select: { jenisBarang: true, tarifSelisihPerKg: true } },
+      penimbangan: true,
+    },
   });
   if (!rit) return galat("Rit tidak ditemukan", 404);
   if (!STATUS_BOLEH_TIMBANG.includes(rit.status as StatusRit)) {
@@ -93,10 +96,15 @@ export async function POST(req: NextRequest, { params }: Konteks) {
     barisMuat.netto,
     barisBongkar.netto,
     rit.kontrak.jenisBarang as JenisBarang,
+    rit.kontrak.tarifSelisihPerKg,
   );
   // Tagihan memakai netto MUAT: invoice ke shipper menagih tonase yang
-  // dimuat di PKS, sedangkan susut di jalan diselesaikan lewat klaim.
+  // dimuat di PKS, sedangkan susut di jalan diselesaikan lewat potongan/klaim.
   const tagihanShipper = hitungTagihanShipper(barisMuat.netto, rit.tarifShipperPerKgSnapshot);
+
+  // Susut di luar toleransi ditanggung supir (catatan kaki DO). Pemaafan yang
+  // sudah diberikan sebelum rit ditutup ikut diperhitungkan di sini.
+  const potongan = hitungPotonganSupir(selisih, rit.pemaafanPotongan);
 
   const final = await db.rit.update({
     where: { id },
@@ -105,8 +113,8 @@ export async function POST(req: NextRequest, { params }: Konteks) {
       kelebihanKg: selisih.kelebihanKg,
       nilaiSelisih: selisih.nilaiSelisih,
       tagihanShipper,
-      // Borongan penuh: selisih berat tidak memotong bayaran supir (SPEC §3).
-      ongkosSupir: rit.ongkosSupirPerRitSnapshot,
+      potonganSupir: potongan,
+      ongkosSupir: hitungBayaranRit(rit.ongkosSupirPerRitSnapshot, potongan),
       status: "SELESAI",
       riwayatStatus: {
         create: {

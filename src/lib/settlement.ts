@@ -16,7 +16,13 @@ export type RitSettlement = {
   noSpk: string;
   nopol: string;
   selesaiBongkar: string | null;
+  /** Borongan kotor rit ini. */
   ongkos: number;
+  /** Potongan susut yang dibebankan; 0 kalau tidak ada. */
+  potongan: number;
+  /** Rincian supaya potongan tidak muncul sebagai angka tanpa penjelasan. */
+  selisihKg: number | null;
+  kelebihanKg: number | null;
 };
 
 export type BarisSettlement = {
@@ -25,13 +31,19 @@ export type BarisSettlement = {
   hp: string;
   /** Hasil hitung ulang dari rit SELESAI bulan tersebut. */
   jumlahRit: number;
+  /** Borongan kotor sebelum potongan. */
   totalOngkos: number;
+  /** Akumulasi potongan susut yang dibebankan ke supir. */
+  totalPotongan: number;
+  /** Yang benar-benar dibayarkan: kotor − potongan. Bisa negatif = utang. */
+  totalBayar: number;
   /** Baris Settlement yang sudah tersimpan, kalau ada. */
   tersimpan: {
     id: string;
     status: StatusSettlement;
     jumlahRit: number;
     totalOngkos: number;
+    totalPotongan: number;
     dibayarPada: string | null;
     catatan: string | null;
   } | null;
@@ -69,6 +81,9 @@ export async function susunSettlementBulan(bulan: string): Promise<BarisSettleme
         supirId: true,
         selesaiBongkar: true,
         ongkosSupirPerRitSnapshot: true,
+        potonganSupir: true,
+        selisihKg: true,
+        kelebihanKg: true,
         truk: { select: { nopol: true } },
         kontrak: { select: { noSpk: true } },
         supir: { select: { nama: true, hp: true } },
@@ -91,6 +106,8 @@ export async function susunSettlementBulan(bulan: string): Promise<BarisSettleme
       hp,
       jumlahRit: 0,
       totalOngkos: 0,
+      totalPotongan: 0,
+      totalBayar: 0,
       tersimpan: null,
       selaras: true,
       rit: [],
@@ -103,6 +120,8 @@ export async function susunSettlementBulan(bulan: string): Promise<BarisSettleme
     const b = siapkan(r.supirId!, r.supir?.nama ?? "—", r.supir?.hp ?? "");
     b.jumlahRit++;
     b.totalOngkos += r.ongkosSupirPerRitSnapshot;
+    b.totalPotongan += r.potonganSupir ?? 0;
+    b.totalBayar = b.totalOngkos - b.totalPotongan;
     b.rit.push({
       ritId: r.id,
       noDo: r.noDo,
@@ -110,6 +129,9 @@ export async function susunSettlementBulan(bulan: string): Promise<BarisSettleme
       nopol: r.truk?.nopol ?? "—",
       selesaiBongkar: r.selesaiBongkar?.toISOString() ?? null,
       ongkos: r.ongkosSupirPerRitSnapshot,
+      potongan: r.potonganSupir ?? 0,
+      selisihKg: r.selisihKg,
+      kelebihanKg: r.kelebihanKg,
     });
   }
 
@@ -120,10 +142,14 @@ export async function susunSettlementBulan(bulan: string): Promise<BarisSettleme
       status: s.status as StatusSettlement,
       jumlahRit: s.jumlahRit,
       totalOngkos: s.totalOngkos,
+      totalPotongan: s.totalPotongan,
       dibayarPada: s.dibayarPada?.toISOString() ?? null,
       catatan: s.catatan,
     };
-    b.selaras = s.jumlahRit === b.jumlahRit && s.totalOngkos === b.totalOngkos;
+    b.selaras =
+      s.jumlahRit === b.jumlahRit &&
+      s.totalOngkos === b.totalOngkos &&
+      s.totalPotongan === b.totalPotongan;
   }
 
   return [...baris.values()].sort((a, b) => b.totalOngkos - a.totalOngkos || a.nama.localeCompare(b.nama));
@@ -150,16 +176,16 @@ export async function simpanDraftBulan(
 
     // Penjumlahan snapshot per rit, bukan jumlahRit x tarif kontrak: satu
     // supir bisa menarik rit dari kontrak dengan borongan berbeda.
-    const totalOngkos = b.totalOngkos;
+    const { totalOngkos, totalPotongan } = b;
     if (b.tersimpan) {
       await db.settlement.update({
         where: { id: b.tersimpan.id },
-        data: { jumlahRit: b.jumlahRit, totalOngkos },
+        data: { jumlahRit: b.jumlahRit, totalOngkos, totalPotongan },
       });
       diperbarui++;
     } else {
       await db.settlement.create({
-        data: { supirId: b.supirId, bulan, jumlahRit: b.jumlahRit, totalOngkos },
+        data: { supirId: b.supirId, bulan, jumlahRit: b.jumlahRit, totalOngkos, totalPotongan },
       });
       dibuat++;
     }

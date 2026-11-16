@@ -14,6 +14,8 @@ import {
   type SumberAngka,
 } from "@/lib/constants";
 import { formatKg, formatRupiah, hitungMargin } from "@/lib/perhitungan";
+import { ambilSesi } from "@/lib/session";
+import { PanelPotongan } from "@/components/rit/panel-potongan";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -66,13 +68,19 @@ export default async function HalamanDetailRit({ params }: { params: Promise<{ i
   });
   if (!rit) notFound();
 
-  const [truk, supir] = await Promise.all([
+  const [truk, supir, sesi, pemaaf] = await Promise.all([
     db.truk.findMany({ where: { aktif: true }, select: { id: true, nopol: true }, orderBy: { nopol: "asc" } }),
     db.user.findMany({
       where: { peran: "SUPIR", aktif: true },
       select: { id: true, nama: true },
       orderBy: { nama: "asc" },
     }),
+    ambilSesi(),
+    // Relasi sengaja tidak dibuat di skema supaya SQLite tidak perlu
+    // membangun ulang tabel Rit hanya demi satu nama yang jarang dipakai.
+    rit.dimaafkanOlehId
+      ? db.user.findUnique({ where: { id: rit.dimaafkanOlehId }, select: { nama: true } })
+      : Promise.resolve(null),
   ]);
 
   const status = rit.status as StatusRit;
@@ -327,6 +335,20 @@ export default async function HalamanDetailRit({ params }: { params: Promise<{ i
                 <Separator />
                 <BarisNilai label="Tagihan shipper" nilai={formatRupiah(rit.tagihanShipper ?? 0)} />
                 <BarisNilai label="Ongkos supir" nilai={formatRupiah(rit.ongkosSupir ?? 0)} />
+                <Separator />
+                <PanelPotongan
+                  ritId={rit.id}
+                  selesai={status === "SELESAI"}
+                  selisihKg={rit.selisihKg}
+                  kelebihanKg={rit.kelebihanKg}
+                  nilaiSelisih={rit.nilaiSelisih}
+                  potonganSupir={rit.potonganSupir}
+                  pemaafanPotongan={rit.pemaafanPotongan}
+                  alasanPemaafan={rit.alasanPemaafan}
+                  dimaafkanOleh={pemaaf?.nama ?? null}
+                  ongkosBorongan={rit.ongkosSupirPerRitSnapshot}
+                  bolehMemaafkan={sesi?.peran === "OWNER"}
+                />
               </CardContent>
             </Card>
           )}

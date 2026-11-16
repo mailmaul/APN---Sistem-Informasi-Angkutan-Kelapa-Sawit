@@ -43,10 +43,13 @@ export function hitungSelisih(
   nettoMuatKg: number,
   nettoBongkarKg: number,
   jenisBarang: JenisBarang,
+  /** Tarif khusus kontrak; kosong = default per jenis barang. */
+  tarifPerKg?: number | null,
 ): HasilSelisih {
   const selisihKg = nettoMuatKg - nettoBongkarKg;
   const kelebihanKg = Math.max(0, Math.abs(selisihKg) - TOLERANSI_SELISIH_KG);
-  const tarif = TARIF_SELISIH_PER_KG[jenisBarang];
+  const bawaan = TARIF_SELISIH_PER_KG[jenisBarang];
+  const tarif = tarifPerKg ?? bawaan;
 
   return {
     selisihKg,
@@ -55,6 +58,28 @@ export function hitungSelisih(
     bertambah: selisihKg < 0,
     dinilai: tarif !== null,
   };
+}
+
+/**
+ * Potongan yang dibebankan ke supir atas susut.
+ *
+ * DO terbitan perusahaan: "Semua kesusutan yang melebihi toleransi ditanggung
+ * oleh driver atau pemilik kendaraan". Hanya selisih POSITIF (barang
+ * berkurang) yang dipotong — muatan yang bertambah karena hujan bukan
+ * keuntungan supir, jadi tidak ada bonus dan juga tidak ada potongan.
+ *
+ * Tidak ada batas atas: potongan boleh melebihi ongkos rit sehingga bayaran
+ * menjadi negatif (saldo utang). Satu-satunya jalan keluar adalah pemaafan
+ * oleh owner, yang selalu menyimpan alasan.
+ */
+export function hitungPotonganSupir(hasil: HasilSelisih, pemaafan = 0): number {
+  if (hasil.selisihKg <= 0) return 0;
+  return Math.max(0, hasil.nilaiSelisih - pemaafan);
+}
+
+/** Bayaran satu rit setelah potongan. Negatif berarti supir berutang. */
+export function hitungBayaranRit(ongkosBorongan: number, potongan: number): number {
+  return ongkosBorongan - potongan;
 }
 
 /**
@@ -96,11 +121,6 @@ export function hitungMargin(input: RingkasanMarginInput): RingkasanMargin {
     klaimShipper,
     margin: tagihanShipper - input.ongkosSupirPerRit - input.totalBiaya - klaimShipper,
   };
-}
-
-/** Bayaran bulanan supir: borongan x jumlah rit selesai. Tidak ada potongan. */
-export function hitungSettlement(jumlahRitSelesai: number, ongkosPerRit: number): number {
-  return jumlahRitSelesai * ongkosPerRit;
 }
 
 /** Tara slip yang menyimpang jauh dari tara baku truk = kemungkinan salah ketik. */

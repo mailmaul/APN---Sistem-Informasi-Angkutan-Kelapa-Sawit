@@ -61,6 +61,8 @@ export function SettlementKlien({ bulan, baris }: { bulan: string; baris: BarisR
 
   const totalRit = baris.reduce((a, b) => a + b.jumlahRit, 0);
   const totalOngkos = baris.reduce((a, b) => a + b.totalOngkos, 0);
+  const totalPotongan = baris.reduce((a, b) => a + b.totalPotongan, 0);
+  const totalBayar = totalOngkos - totalPotongan;
   const adaDraft = baris.some((b) => b.tersimpan?.status === "DRAFT");
   const adaFinal = baris.some((b) => b.tersimpan?.status === "FINAL");
   const adaBasi = baris.some((b) => b.tersimpan && !b.selaras);
@@ -164,11 +166,11 @@ export function SettlementKlien({ bulan, baris }: { bulan: string; baris: BarisR
           <div>
             <CardTitle className="text-sm">Bayaran supir — {labelBulan(bulan)}</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Jumlah rit selesai x borongan snapshot tiap rit · tanpa potongan apa pun
+              Borongan snapshot tiap rit dikurangi potongan susut di luar toleransi
             </p>
           </div>
           <div className="text-right">
-            <p className="angka text-base font-semibold">{formatRupiah(totalOngkos)}</p>
+            <p className="angka text-base font-semibold">{formatRupiah(totalBayar)}</p>
             <p className="angka text-xs text-muted-foreground">
               {formatAngka(totalRit)} rit · {baris.length} supir
             </p>
@@ -188,9 +190,11 @@ export function SettlementKlien({ bulan, baris }: { bulan: string; baris: BarisR
               <TableRow>
                 <TableHead>Supir</TableHead>
                 <TableHead className="text-right">Rit selesai</TableHead>
-                <TableHead className="text-right">Bayaran</TableHead>
+                <TableHead className="text-right">Borongan</TableHead>
+                <TableHead className="text-right">Potongan</TableHead>
+                <TableHead className="text-right">Dibayar</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Dibayar</TableHead>
+                <TableHead>Tgl bayar</TableHead>
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -202,12 +206,20 @@ export function SettlementKlien({ bulan, baris }: { bulan: string; baris: BarisR
                     <span className="angka ml-2 text-xs text-muted-foreground">{b.hp}</span>
                   </TableCell>
                   <TableCell className="angka text-right">{formatAngka(b.jumlahRit)}</TableCell>
-                  <TableCell className="angka text-right font-medium">
+                  <TableCell className="angka text-right text-muted-foreground">
                     {formatRupiah(b.totalOngkos)}
+                  </TableCell>
+                  <TableCell className="angka text-right">
+                    {b.totalPotongan > 0 ? (
+                      <span className="text-bahaya">− {formatRupiah(b.totalPotongan)}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="angka text-right font-medium">
+                    {formatRupiah(b.totalBayar)}
                     {b.tersimpan && !b.selaras && (
-                      <span className="ml-1 text-xs text-peringatan">
-                        (tersimpan {formatRupiah(b.tersimpan.totalOngkos)})
-                      </span>
+                      <span className="ml-1 text-xs text-peringatan">angka tersimpan basi</span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -250,7 +262,15 @@ export function SettlementKlien({ bulan, baris }: { bulan: string; baris: BarisR
               <TableRow className="h-11">
                 <TableCell>Total</TableCell>
                 <TableCell className="angka text-right">{formatAngka(totalRit)}</TableCell>
-                <TableCell className="angka text-right">{formatRupiah(totalOngkos)}</TableCell>
+                <TableCell className="angka text-right text-muted-foreground">
+                  {formatRupiah(totalOngkos)}
+                </TableCell>
+                <TableCell className="angka text-right text-bahaya">
+                  {totalPotongan > 0 ? `− ${formatRupiah(totalPotongan)}` : "—"}
+                </TableCell>
+                <TableCell className="angka text-right font-semibold">
+                  {formatRupiah(totalBayar)}
+                </TableCell>
                 <TableCell colSpan={3} />
               </TableRow>
             </TableFooter>

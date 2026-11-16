@@ -99,6 +99,10 @@ model Kontrak {
   tarifShipperPerKg Int
   ongkosSupirPerRit  Int // rupiah borongan per rit, biaya APN
 
+  /// Menimpa tarif selisih default per jenis barang. Kosong = pakai default
+  /// di src/lib/constants.ts (Kernel 7.500/kg, Shell 1.000/kg).
+  tarifSelisihPerKg Int?
+
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -137,8 +141,19 @@ model Rit {
   // Hasil perhitungan, dibekukan saat rit diselesaikan admin.
   selisihKg     Int? // positif = barang berkurang, negatif = bertambah
   kelebihanKg   Int? // setelah dikurangi toleransi 20 kg
-  nilaiSelisih  Int? // rupiah, kerugian perusahaan
+  nilaiSelisih  Int? // rupiah nilai susut di luar toleransi
   tagihanShipper Int?
+
+  /// Potongan yang dibebankan ke supir atas susut (DO: "ditanggung driver
+  /// atau pemilik kendaraan"). Hanya selisih POSITIF yang dipotong.
+  potonganSupir     Int?
+  /// Bagian potongan yang dimaafkan owner. Satu-satunya jalan keluar dari
+  /// potongan — selalu menyimpan alasan dan siapa yang memberi.
+  pemaafanPotongan  Int       @default(0)
+  alasanPemaafan    String?
+  dimaafkanOlehId   String?
+  dimaafkanPada     DateTime?
+  /// Ongkos borongan setelah potongan efektif. Boleh negatif = saldo utang.
   ongkosSupir    Int?
 
   slipFisikDiterima Boolean   @default(false)
@@ -290,7 +305,8 @@ model Settlement {
   supirId     String
   bulan       String // format YYYY-MM
   jumlahRit   Int
-  totalOngkos Int // rupiah
+  totalOngkos   Int // rupiah, borongan kotor sebelum potongan
+  totalPotongan Int @default(0) // rupiah, akumulasi potongan susut
   status      String    @default("DRAFT") // DRAFT | FINAL | DIBAYAR
   dibayarPada DateTime?
   catatan     String?

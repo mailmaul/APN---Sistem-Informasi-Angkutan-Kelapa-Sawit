@@ -20,6 +20,7 @@ import {
   formatKg,
   formatRupiah,
   hitungNetto,
+  hitungPotonganSupir,
   hitungSelisih,
   hitungTagihanShipper,
   taraMencurigakan,
@@ -325,6 +326,8 @@ export function FormTimbang({
       ? hitungSelisih(nettoMuat, nettoBongkar, jenisBarang)
       : null;
   const tagihan = nettoMuat !== null ? hitungTagihanShipper(nettoMuat, tarifShipperPerKgSnapshot) : null;
+  // Pratinjau potongan supaya admin tahu dampaknya sebelum menekan selesai.
+  const potongan = hasil ? hitungPotonganSupir(hasil) : 0;
   const lengkap = nettoMuat !== null && nettoBongkar !== null;
 
   const kirim = (selesaikan: boolean) =>
@@ -443,12 +446,37 @@ export function FormTimbang({
               <dt className="text-xs text-muted-foreground">Ongkos supir (borongan)</dt>
               <dd className="angka font-medium">{formatRupiah(ongkosSupirPerRitSnapshot)}</dd>
             </div>
+            {potongan > 0 && (
+              <>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-xs text-muted-foreground">Potongan susut</dt>
+                  <dd className="angka font-medium text-bahaya">− {formatRupiah(potongan)}</dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-xs font-medium">Diterima supir</dt>
+                  <dd
+                    className={`angka font-semibold ${
+                      ongkosSupirPerRitSnapshot - potongan < 0 ? "text-bahaya" : ""
+                    }`}
+                  >
+                    {formatRupiah(ongkosSupirPerRitSnapshot - potongan)}
+                  </dd>
+                </div>
+              </>
+            )}
           </dl>
         )}
 
-        <p className="mt-3 rounded-md border border-sukses/25 bg-sukses/10 px-2.5 py-1.5 text-xs font-medium text-sukses">
-          Ongkos supir borongan tidak terpengaruh selisih.
-        </p>
+        {potongan > 0 ? (
+          <p className="mt-3 rounded-md border border-bahaya/25 bg-bahaya/10 px-2.5 py-1.5 text-xs font-medium text-bahaya">
+            Susut di luar toleransi dipotong dari bayaran supir. Owner bisa memaafkan
+            setelah rit diselesaikan.
+          </p>
+        ) : (
+          <p className="mt-3 rounded-md border border-sukses/25 bg-sukses/10 px-2.5 py-1.5 text-xs font-medium text-sukses">
+            Susut masih dalam toleransi — bayaran supir utuh.
+          </p>
+        )}
       </div>
 
       {!terkunci && (
