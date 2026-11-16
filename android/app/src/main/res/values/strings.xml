@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">APN Supir</string>
+    <string name="pelacakan_channel_nama">Pelacakan perjalanan</string>
+    <string name="pelacakan_channel_deskripsi">Notifikasi tetap selama GPS merekam perjalanan rit.</string>
+</resources>
