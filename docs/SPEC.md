@@ -3,8 +3,10 @@
 Status: **TERIMPLEMENTASI (v1.0)** — live di https://mauldev.my.id/apn
 (pm2 `apn-app`, port 4177 loopback, nginx `location /apn`).
 
-Akun seed: owner `081200000000` / admin `081200000001` / supir `081311110001-3`,
-semua password `admin123` — **ganti sebelum dipakai sungguhan**.
+Login menerima **username atau nomor HP**. Akun seed: owner `apn`/`apn123`,
+admin `lilis`/`lilis123` dan `devi`/`devi123`, supir pakai nomor HP
+`081311110001-16` dengan password `admin123` — **ganti sebelum dipakai
+sungguhan**.
 
 Sumber kebenaran bisnis: dokumen *"Business Process & Data Flow Analysis —
 Transportation & Logistics, Palm Kernel and Palm Shell Hauling"* plus keputusan

@@ -31,6 +31,7 @@ export default async function HalamanPengguna() {
   const daftar: BarisPengguna[] = pengguna.map((p) => ({
     id: p.id,
     nama: p.nama,
+    username: p.username,
     hp: p.hp,
     peran: p.peran as Peran,
     aktif: p.aktif,

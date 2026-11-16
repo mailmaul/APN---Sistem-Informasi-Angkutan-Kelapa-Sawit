@@ -18,10 +18,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Owner, admin kantor, dan supir. Login pakai nomor HP.
+/// Owner, admin kantor, dan supir. Login menerima username ATAU nomor HP.
+/// Username dipakai staf kantor; supir cukup nomor HP, jadi kolomnya opsional.
+/// Disimpan huruf kecil supaya "Lilis" dan "lilis" tidak jadi dua akun.
 model User {
   id           String   @id @default(cuid())
   nama         String
+  username     String?  @unique
   hp           String   @unique
   passwordHash String
   peran        String // OWNER | ADMIN | SUPIR

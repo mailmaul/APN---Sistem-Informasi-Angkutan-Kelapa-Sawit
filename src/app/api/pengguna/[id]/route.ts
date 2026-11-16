@@ -5,19 +5,17 @@ import { db } from "@/lib/db";
 import { galat, wajibKantor } from "@/lib/api-auth";
 import { galatPrisma } from "@/lib/prisma-galat";
 import { PERAN, type Peran } from "@/lib/constants";
+import { PESAN_UNIK_PENGGUNA, skemaHp, skemaUsername } from "@/lib/validasi-pengguna";
 
-const PESAN_UNIK = { hp: "Nomor HP itu sudah dipakai pengguna lain" };
+const PESAN_UNIK = PESAN_UNIK_PENGGUNA;
 const RONDE_BCRYPT = 10;
 
 const skemaUbah = z
   .object({
     nama: z.string().trim().min(2, "Nama minimal 2 huruf").max(120).optional(),
-    hp: z
-      .string()
-      .trim()
-      .transform((v) => v.replace(/[\s.()-]/g, ""))
-      .refine((v) => /^\+?[0-9]{8,20}$/.test(v), "Nomor HP harus 8-20 angka")
-      .optional(),
+    // Kirim "" atau null untuk mencabut username (mis. akun diubah jadi supir).
+    username: skemaUsername.optional(),
+    hp: skemaHp.optional(),
     peran: z.enum(PERAN, "Peran tidak dikenal").optional(),
     aktif: z.boolean().optional(),
     // Dikosongkan = password lama dipertahankan.
@@ -32,6 +30,7 @@ const skemaUbah = z
 const KOLOM_AMAN = {
   id: true,
   nama: true,
+  username: true,
   hp: true,
   peran: true,
   aktif: true,
@@ -54,7 +53,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const parsed = skemaUbah.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return galat(parsed.error.issues[0].message);
 
-  const { nama, hp, peran, aktif, password } = parsed.data;
+  const { nama, username, hp, peran, aktif, password } = parsed.data;
 
   const target = await db.user.findUnique({ where: { id } });
   if (!target) return galat("Pengguna tidak ditemukan", 404);
@@ -81,6 +80,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id },
       data: {
         ...(nama !== undefined ? { nama } : {}),
+        ...(username !== undefined ? { username } : {}),
         ...(hp !== undefined ? { hp } : {}),
         ...(peran !== undefined ? { peran } : {}),
         ...(aktif !== undefined ? { aktif } : {}),

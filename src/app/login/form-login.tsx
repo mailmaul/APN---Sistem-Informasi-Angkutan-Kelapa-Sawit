@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 // untuk nomor HP, dan hanya satu tombol.
 
 const skema = z.object({
-  hp: z.string().trim().min(6, "Nomor HP wajib diisi"),
+  identitas: z.string().trim().min(3, "Username atau nomor HP wajib diisi"),
   password: z.string().min(1, "Password wajib diisi"),
 });
 
@@ -29,7 +29,7 @@ export function FormLogin() {
 
   const form = useForm<IsiLogin>({
     resolver: zodResolver(skema),
-    defaultValues: { hp: "", password: "" },
+    defaultValues: { identitas: "", password: "" },
   });
 
   async function masuk(isi: IsiLogin) {
@@ -55,20 +55,20 @@ export function FormLogin() {
       className="space-y-4 rounded-lg border bg-card p-5 shadow-sm"
     >
       <div className="space-y-2">
-        <Label htmlFor="hp" className="text-sm">
-          Nomor HP
+        <Label htmlFor="identitas" className="text-sm">
+          Username atau Nomor HP
         </Label>
         <Input
-          id="hp"
-          type="tel"
-          inputMode="numeric"
+          id="identitas"
+          type="text"
+          autoCapitalize="none"
           autoComplete="username"
-          placeholder="08xxxxxxxxxx"
-          className="angka h-12 text-base"
-          {...form.register("hp")}
+          placeholder="username atau 08xxxxxxxxxx"
+          className="h-12 text-base"
+          {...form.register("identitas")}
         />
-        {form.formState.errors.hp ? (
-          <p className="text-xs text-bahaya">{form.formState.errors.hp.message}</p>
+        {form.formState.errors.identitas ? (
+          <p className="text-xs text-bahaya">{form.formState.errors.identitas.message}</p>
         ) : null}
       </div>
 

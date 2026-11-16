@@ -84,16 +84,25 @@ async function bersihkan() {
 }
 
 async function masterData(): Promise<Master> {
+  // Supir memakai satu password demo yang sama; staf kantor punya sendiri.
   const hash = await bcrypt.hash("admin123", 10);
 
   const kantor = [];
-  for (const k of KANTOR) {
+  for (const { password, ...k } of KANTOR) {
+    const passwordHash = await bcrypt.hash(password, 10);
     kantor.push(await db.user.upsert({
       where: { hp: k.hp },
-      update: { nama: k.nama, peran: k.peran, aktif: true, passwordHash: hash },
-      create: { ...k, passwordHash: hash },
+      update: { ...k, aktif: true, passwordHash },
+      create: { ...k, passwordHash },
     }));
   }
+
+  // Akun kantor lama di luar daftar di atas dinonaktifkan supaya demo tidak
+  // menampilkan sisa akun percobaan yang masih bisa dipakai masuk.
+  await db.user.updateMany({
+    where: { peran: { in: ["OWNER", "ADMIN"] }, hp: { notIn: KANTOR.map((k) => k.hp) } },
+    data: { aktif: false },
+  });
 
   const supir = [];
   for (let i = 0; i < SUPIR.length; i++) {
@@ -537,7 +546,8 @@ async function main() {
   console.log(`  Titik GPS   : ${totalGps}`);
   console.log(`  Settlement  : ${settlement} baris`);
   console.log("  Status rit  :", hitungStatus);
-  console.log("\n  Semua akun berpassword: admin123");
+  console.log("\n  Kantor: apn/apn123 · lilis/lilis123 · devi/devi123");
+  console.log("  Supir : nomor HP 081311110001-16, password admin123");
 }
 
 main()

@@ -49,11 +49,14 @@ export const SUPIR = [
   "Tri Nurcahyo", "M. Arifin", "Budi Eka", "Mariman",
 ];
 
+/**
+ * Staf kantor masuk dengan username; nomor HP tetap diisi karena kolomnya
+ * wajib dan unik. Password per akun, bukan satu password untuk semua.
+ */
 export const KANTOR = [
-  { nama: "Super Admin", hp: "081299999999", peran: "OWNER" },
-  { nama: "Yasifun", hp: "081200000000", peran: "OWNER" },
-  { nama: "Rina Wulandari", hp: "081200000001", peran: "ADMIN" },
-  { nama: "Fitri Anggraini", hp: "081200000002", peran: "ADMIN" },
+  { nama: "Owner APN", username: "apn", hp: "081200000000", peran: "OWNER", password: "apn123" },
+  { nama: "Lilis", username: "lilis", hp: "081200000001", peran: "ADMIN", password: "lilis123" },
+  { nama: "Devi", username: "devi", hp: "081200000002", peran: "ADMIN", password: "devi123" },
 ];
 
 /** Nama jembatan timbang per lokasi, dipakai mengisi slip. */
