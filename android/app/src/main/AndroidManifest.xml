@@ -53,6 +53,18 @@
                 android:value="androidx.startup"
                 tools:node="remove" />
         </provider>
+
+        <!-- DO dibagikan sebagai berkas, bukan tautan: aplikasi pembaca PDF dan
+             WhatsApp tidak membawa sesi APN. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.berkas"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/berkas_dibagikan" />
+        </provider>
     </application>
 
 </manifest>

@@ -3,6 +3,7 @@ package id.apn.supir.ui.layar.rit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import id.apn.supir.data.jaringan.Hasil
 import id.apn.supir.data.repo.HasilAksi
 import id.apn.supir.data.repo.RepoRit
 import id.apn.supir.domain.RitAktif
@@ -25,7 +26,13 @@ data class KeadaanRit(
     val gpsAktif: Boolean = false,
     /** Transisi yang menunggu foto; kamera dibuka untuk ini. */
     val menungguFoto: Transisi? = null,
+    val sedangUnduhDo: Boolean = false,
+    /** Berkas DO siap dipakai beserta niat yang memintanya; sekali pakai. */
+    val doSiap: DoSiap? = null,
 )
+
+/** @param bagikan true bila supir menekan Bagikan, bukan Buka. */
+data class DoSiap(val berkas: java.io.File, val bagikan: Boolean)
 
 @HiltViewModel
 class VmRit @Inject constructor(private val repo: RepoRit) : ViewModel() {
@@ -67,6 +74,38 @@ class VmRit @Inject constructor(private val repo: RepoRit) : ViewModel() {
 
     fun hapusPesan() {
         _keadaan.value = _keadaan.value.copy(pesan = null, pesanOffline = false)
+    }
+
+    /**
+     * Mengunduh DO lalu menyerahkannya ke layar untuk dibuka atau dibagikan.
+     * Unduhan memakai sesi aplikasi; URL mentah tidak pernah dilempar ke luar.
+     */
+    fun siapkanDo(bagikan: Boolean) {
+        val rit = _keadaan.value.rit ?: return
+        if (_keadaan.value.sedangUnduhDo) return
+
+        _keadaan.value = _keadaan.value.copy(sedangUnduhDo = true, pesan = null, pesanOffline = false)
+        viewModelScope.launch {
+            _keadaan.value = when (val hasil = repo.unduhDo(rit)) {
+                is Hasil.Sukses -> _keadaan.value.copy(
+                    sedangUnduhDo = false,
+                    doSiap = DoSiap(hasil.data, bagikan),
+                )
+
+                is Hasil.Galat -> _keadaan.value.copy(sedangUnduhDo = false, pesan = hasil.pesan)
+                Hasil.Offline -> _keadaan.value.copy(
+                    sedangUnduhDo = false,
+                    pesanOffline = true,
+                    pesan = "Tidak ada sinyal. DO hanya bisa diunduh sekali saat ada jaringan, " +
+                        "setelah itu tersimpan di HP.",
+                )
+            }
+        }
+    }
+
+    /** Dipanggil layar setelah Intent dijalankan supaya tidak terbuka dua kali. */
+    fun doSudahDipakai() {
+        _keadaan.value = _keadaan.value.copy(doSiap = null)
     }
 
     /** Transisi berfoto ditahan dulu sampai kamera mengembalikan berkas. */

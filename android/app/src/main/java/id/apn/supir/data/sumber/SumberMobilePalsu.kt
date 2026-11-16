@@ -261,6 +261,31 @@ class SumberMobilePalsu @Inject constructor(
         UnggahRes(url = berkas.toURI().toString(), ukuran = berkas.length(), tipe = "image/jpeg"),
     )
 
+    override suspend fun unduhDo(path: String, tujuan: File): Hasil<File> = dengan { k ->
+        val rit = k.rit ?: return@dengan Hasil.Galat("DO belum terbit", 404)
+        val po = k.po.firstOrNull { it.noSpk.isNotBlank() && rit.shipper == it.shipper }
+        Hasil.Sukses(
+            PembuatDoPalsu.tulis(
+                PembuatDoPalsu.Isi(
+                    noDo = rit.noDo,
+                    noKontrak = po?.noSpk ?: "-",
+                    tanggal = System.currentTimeMillis(),
+                    quantity = "1 UNIT",
+                    shipper = rit.shipper,
+                    pks = rit.lokasiMuat,
+                    jenisBarang = rit.jenisBarang.replace('_', ' '),
+                    tujuan = rit.lokasiBongkar,
+                    transportir = "PT ADILA PARIS NUSANTARA",
+                    driver = k.supir.nama,
+                    noSim = k.supir.noSim ?: "-",
+                    nopol = rit.nopol,
+                    noHp = k.supir.hp,
+                ),
+                tujuan,
+            ),
+        )
+    }
+
     private companion object {
         /** Jeda sebelum "kantor" menyetujui pengajuan pada mode palsu. */
         const val JEDA_PERSETUJUAN_MS = 30_000L

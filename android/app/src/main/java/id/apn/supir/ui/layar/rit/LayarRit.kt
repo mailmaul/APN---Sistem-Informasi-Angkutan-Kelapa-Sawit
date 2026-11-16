@@ -39,10 +39,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import id.apn.supir.BuildConfig
+import java.io.File
 import id.apn.supir.domain.LANGKAH_SUPIR
 import id.apn.supir.domain.RitAktif
 import id.apn.supir.domain.STATUS_BOLEH_KENDALA
@@ -122,6 +122,15 @@ fun LayarRit(
         } else {
             LayananPelacakan.hentikan(context)
             vm.tandaiGps(false)
+        }
+    }
+
+    // DO yang sudah terunduh dibuka/dibagikan sebagai berkas lewat FileProvider.
+    val doSiap = keadaan.doSiap
+    LaunchedEffect(doSiap) {
+        if (doSiap != null) {
+            bukaBerkasDo(context, doSiap.berkas, doSiap.bagikan, rit?.noDo.orEmpty())
+            vm.doSudahDipakai()
         }
     }
 
@@ -269,20 +278,19 @@ fun LayarRit(
                 }
             }
 
-            rit.doPdfUrl?.let { path ->
+            if (rit.doPdfUrl != null) {
                 Spacer(Modifier.height(12.dp))
-                val url = urlPenuh(path)
-                TombolSekunder(teks = "Buka DO (PDF)", ikon = Icons.Default.PictureAsPdf) {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
-                }
+                TombolSekunder(
+                    teks = if (keadaan.sedangUnduhDo) "Menyiapkan DO…" else "Buka DO (PDF)",
+                    ikon = Icons.Default.PictureAsPdf,
+                    aktif = !keadaan.sedangUnduhDo,
+                ) { vm.siapkanDo(bagikan = false) }
                 Spacer(Modifier.height(8.dp))
-                TombolSekunder(teks = "Bagikan DO", ikon = Icons.Default.Share) {
-                    val kirim = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, "DO ${rit.noDo}: $url")
-                    }
-                    context.startActivity(Intent.createChooser(kirim, "Bagikan DO"))
-                }
+                TombolSekunder(
+                    teks = "Bagikan DO",
+                    ikon = Icons.Default.Share,
+                    aktif = !keadaan.sedangUnduhDo,
+                ) { vm.siapkanDo(bagikan = true) }
             }
 
             Spacer(Modifier.height(24.dp))
@@ -313,5 +321,31 @@ private fun petunjukFoto(transisi: Transisi): String = when (transisi.ke) {
     else -> "Perlu foto bukti"
 }
 
-private fun urlPenuh(path: String): String =
-    if (path.startsWith("http")) path else BuildConfig.API_BASE_URL.trimEnd('/') + "/" + path.trimStart('/')
+/**
+ * Membuka atau membagikan DO sebagai berkas.
+ *
+ * Berkas dibungkus FileProvider dan diberi izin baca sementara: aplikasi tujuan
+ * tidak punya sesi APN, jadi menyerahkan URL hanya menghasilkan "Belum login".
+ */
+private fun bukaBerkasDo(context: Context, berkas: File, bagikan: Boolean, noDo: String) {
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.berkas", berkas)
+    val intent = if (bagikan) {
+        Intent(Intent.ACTION_SEND).apply {
+            type = "application/pdf"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, "DO $noDo")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    } else {
+        Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/pdf")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    val pemilih = Intent.createChooser(intent, if (bagikan) "Bagikan DO" else "Buka DO")
+    runCatching { context.startActivity(pemilih) }.onFailure {
+        // Tidak ada pembaca PDF terpasang — biarkan sistem yang memberi tahu.
+        context.startActivity(Intent.createChooser(intent, "Buka DO"))
+    }
+}

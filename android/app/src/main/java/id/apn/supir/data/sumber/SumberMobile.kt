@@ -1,5 +1,7 @@
 package id.apn.supir.data.sumber
 
+import id.apn.supir.BuildConfig
+import id.apn.supir.data.jaringan.PengunduhDo
 import id.apn.supir.data.jaringan.ApiApn
 import id.apn.supir.data.jaringan.DaftarReq
 import id.apn.supir.data.jaringan.DaftarRes
@@ -43,9 +45,15 @@ interface SumberMobile {
     suspend fun laporKendala(ritId: String, req: KendalaReq): Hasil<KendalaRes>
     suspend fun kirimTitik(ritId: String, req: TrackReq): Hasil<TrackRes>
     suspend fun unggahFoto(berkas: File): Hasil<UnggahRes>
+
+    /** Mengunduh DO PDF ke [tujuan]; [path] relatif terhadap base URL backend. */
+    suspend fun unduhDo(path: String, tujuan: File): Hasil<File>
 }
 
-class SumberMobileJaringan @Inject constructor(private val api: ApiApn) : SumberMobile {
+class SumberMobileJaringan @Inject constructor(
+    private val api: ApiApn,
+    private val pengunduhDo: PengunduhDo,
+) : SumberMobile {
 
     override suspend fun daftar(req: DaftarReq) = panggil { api.daftar(req) }
 
@@ -93,5 +101,14 @@ class SumberMobileJaringan @Inject constructor(private val api: ApiApn) : Sumber
             berkas.asRequestBody("image/jpeg".toMediaType()),
         )
         return panggil { api.unggahFoto(bagian) }
+    }
+
+    override suspend fun unduhDo(path: String, tujuan: File): Hasil<File> {
+        val url = if (path.startsWith("http")) {
+            path
+        } else {
+            BuildConfig.API_BASE_URL.trimEnd('/') + "/" + path.trimStart('/')
+        }
+        return pengunduhDo.unduh(url, tujuan)
     }
 }

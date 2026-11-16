@@ -1,5 +1,7 @@
 package id.apn.supir.data.repo
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import id.apn.supir.data.antrian.Antrian
 import id.apn.supir.data.jaringan.Hasil
 import id.apn.supir.data.jaringan.KendalaReq
@@ -17,6 +19,7 @@ import id.apn.supir.domain.Transisi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -40,11 +43,15 @@ sealed interface HasilAksi {
  */
 @Singleton
 class RepoRit @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val sumber: SumberMobile,
     private val ritDao: RitDao,
     private val antrian: Antrian,
 ) {
     private val json = Json { encodeDefaults = true }
+
+    /** DO disimpan di cache: boleh dibuang sistem, selalu bisa diunduh ulang. */
+    private val folderDo: File get() = File(context.cacheDir, "do")
 
     val ritAktif: Flow<RitAktif?> = ritDao.alirkan().map { it?.keDomain() }
 
@@ -70,6 +77,20 @@ class RepoRit @Inject constructor(
         is Hasil.Sukses -> Hasil.Sukses(hasil.data.rit.map { it.keDomain() })
         is Hasil.Galat -> hasil
         Hasil.Offline -> Hasil.Offline
+    }
+
+    /**
+     * Mengunduh DO ke penyimpanan cache aplikasi dan mengembalikan berkasnya.
+     *
+     * Berkas dipakai ulang bila sudah ada: DO tidak berubah setelah terbit, dan
+     * supir di jalan sering membukanya berkali-kali tanpa sinyal.
+     */
+    suspend fun unduhDo(rit: RitAktif): Hasil<File> {
+        val path = rit.doPdfUrl
+            ?: return Hasil.Galat("DO untuk rit ini belum terbit", 404)
+        val berkas = File(folderDo, "DO-${rit.noDo.replace('/', '-')}.pdf")
+        if (berkas.exists() && berkas.length() > 0) return Hasil.Sukses(berkas)
+        return sumber.unduhDo(path, berkas)
     }
 
     /**

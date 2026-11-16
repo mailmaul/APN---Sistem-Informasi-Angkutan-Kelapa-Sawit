@@ -182,5 +182,14 @@ diambil dari `src/lib/perhitungan.ts` supaya identik dengan web admin.
 
 - Endpoint §2 hidup di staging/produksi.
 - Token di badan login (§1).
-- DO PDF `GET /api/do/:id.pdf` dapat dibuka dengan sesi supir (klien membukanya
-  lewat Intent VIEW dan membagikannya lewat Intent SEND).
+- DO PDF `GET /api/do/:id.pdf`:
+  - dibalas dengan `Content-Type: application/pdf` dan badan PDF (bukan HTML
+    atau redirect ke halaman login) untuk permintaan bersesi supir;
+  - `rit.doPdfUrl` berisi path relatif terhadap base URL, mis. `api/do/<ritId>.pdf`.
+
+  Klien **mengunduh** berkasnya memakai sesi aplikasi lalu membukanya lewat
+  FileProvider (Intent VIEW) dan membagikannya sebagai berkas (Intent SEND).
+  URL mentah tidak pernah dilempar ke browser — browser tanpa cookie hanya
+  menerima `{"error":"Belum login"}`. Selama endpoint belum ada, mode palsu
+  membuat PDF pratinjau di perangkat (`PembuatDoPalsu`), bertanda
+  "PRATINJAU LOKAL" supaya tidak tertukar dengan DO resmi.

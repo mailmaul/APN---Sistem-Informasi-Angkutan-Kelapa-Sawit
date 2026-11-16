@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Hanya DO yang boleh keluar lewat FileProvider; foto bukti tetap internal. -->
+    <cache-path name="do" path="do/" />
+</paths>
