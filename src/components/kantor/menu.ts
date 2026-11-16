@@ -4,14 +4,13 @@ import {
   FileText,
   LayoutDashboard,
   MapPin,
+  Smartphone,
   Truck,
   Users,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
 import type { Peran } from "@/lib/constants";
-  Smartphone,
-      { href: "/aplikasi-supir", label: "Aplikasi Supir", icon: Smartphone },
 
 // Satu daftar menu dipakai sidebar desktop, sheet mobile, dan judul header.
 // Menambah halaman kantor = menambah satu baris di sini.
@@ -38,6 +37,7 @@ export const MENU_KANTOR: GrupMenu[] = [
       { href: "/kontrak", label: "Kontrak", icon: FileText },
       { href: "/rit", label: "Rit / DO", icon: Truck },
       { href: "/settlement", label: "Settlement", icon: Wallet },
+      { href: "/aplikasi-supir", label: "Aplikasi Supir", icon: Smartphone },
       { href: "/laporan", label: "Laporan", icon: ChartColumn },
     ],
   },
