@@ -1,71 +1,73 @@
-// Master data demo. Nama perusahaan fiktif, lokasi & koordinat nyata di
-// Sumatera Utara supaya peta jejak GPS terlihat masuk akal saat dipresentasikan.
+// Master data demo. Disusun mengikuti dokumen asli di doc-example/:
+// APN beroperasi di Kalimantan Tengah (Pangkalan Bun/Kumai), mengangkut
+// Palm Kernel dari PKS milik shipper ke gudang pembeli.
 
 export const SHIPPER = [
-  { nama: "PT Sawit Nusantara Lestari", kontak: "061-4567890", alamat: "Jl. Imam Bonjol No. 12, Medan" },
-  { nama: "PT Kernel Jaya Abadi", kontak: "061-7712340", alamat: "Jl. Gatot Subroto Km 7, Medan" },
-  { nama: "PT Mitra Palma Sejahtera", kontak: "0622-331100", alamat: "Jl. Asahan No. 45, Kisaran" },
-  { nama: "PT Agro Cangkang Mandiri", kontak: "0623-884422", alamat: "Jl. Lintas Sumatera, Rantau Prapat" },
-  { nama: "PT Bintang Sawit Perkasa", kontak: "061-8891200", alamat: "Jl. Sisingamangaraja Km 9, Medan" },
+  { nama: "PT Sungai Rangit", kontak: "0532-24264", alamat: "Jl. Malijo RT.009 RW.003 Madurejo, Arut Selatan" },
+  { nama: "PT Kurnia Tunggal Nugraha", kontak: "0532-21880", alamat: "Bumi Harjo, Kumai, Kotawaringin Barat" },
+  { nama: "PT Sawit Mandiri Lestari", kontak: "0532-27711", alamat: "Pangkalan Bun, Kotawaringin Barat" },
+  { nama: "PT Kalteng Agro Perkasa", kontak: "0532-29900", alamat: "Sukamara, Kalimantan Tengah" },
 ];
 
 export const LOKASI = [
-  { nama: "PKS Sei Mangkei", alamat: "KEK Sei Mangkei, Simalungun", lat: 3.0167, lng: 99.35, jenis: "ASAL" },
-  { nama: "PKS Torgamba", alamat: "Torgamba, Labuhanbatu Selatan", lat: 1.8167, lng: 100.2, jenis: "ASAL" },
-  { nama: "PKS Aek Nabara", alamat: "Aek Nabara, Labuhanbatu", lat: 2.1167, lng: 99.9333, jenis: "ASAL" },
-  { nama: "PKS Perlabian", alamat: "Perlabian, Labuhanbatu Selatan", lat: 1.9833, lng: 100.0667, jenis: "ASAL" },
-  { nama: "PKS Pabatu", alamat: "Pabatu, Serdang Bedagai", lat: 3.3167, lng: 99.0833, jenis: "ASAL" },
-  { nama: "Gudang Belawan", alamat: "Pelabuhan Belawan, Medan", lat: 3.7833, lng: 98.6833, jenis: "TUJUAN" },
-  { nama: "Pelabuhan Kuala Tanjung", alamat: "Kuala Tanjung, Batu Bara", lat: 3.3667, lng: 99.45, jenis: "TUJUAN" },
-  { nama: "Gudang Dumai", alamat: "Pelabuhan Dumai, Riau", lat: 1.6667, lng: 101.45, jenis: "TUJUAN" },
-  { nama: "Terminal Curah Sibolga", alamat: "Pelabuhan Sibolga, Tapanuli Tengah", lat: 1.7425, lng: 98.78, jenis: "TUJUAN" },
+  { nama: "Mill Sungai Rangit", alamat: "Madurejo, Arut Selatan, Kotawaringin Barat", lat: -2.6833, lng: 111.65, jenis: "ASAL" },
+  { nama: "PKS Sukamara", alamat: "Sukamara, Kalimantan Tengah", lat: -2.6269, lng: 111.2369, jenis: "ASAL" },
+  { nama: "PKS Natai Baru", alamat: "Natai Baru, Arut Selatan", lat: -2.7333, lng: 111.7167, jenis: "ASAL" },
+  { nama: "PKS Runtu", alamat: "Runtu, Arut Selatan, Kotawaringin Barat", lat: -2.5667, lng: 111.7333, jenis: "ASAL" },
+  { nama: "Gudang Kurnia Tunggal Nugraha", alamat: "Bumi Harjo, Kumai, Kotawaringin Barat", lat: -2.7411, lng: 111.7289, jenis: "TUJUAN" },
+  { nama: "Pelabuhan Panglima Utar Kumai", alamat: "Kumai, Kotawaringin Barat", lat: -2.7417, lng: 111.7333, jenis: "TUJUAN" },
+  { nama: "Gudang Pangkalan Bun", alamat: "Pasir Panjang, Arut Selatan", lat: -2.6861, lng: 111.6183, jenis: "TUJUAN" },
 ];
 
-/** 16 unit — jumlah armada sesuai dokumen proses bisnis. */
+/**
+ * 16 unit. Tara & kapasitas mengikuti rekap asli: truk angkutan PK bertara
+ * sekitar 4,3-5 ton dengan muatan bersih 8,5-11 ton — bukan tronton 30 ton.
+ */
 export const TRUK = [
-  { nopol: "BK 8821 AA", taraBaku: 13820, kapasitas: 30000 },
-  { nopol: "BK 9043 AB", taraBaku: 13950, kapasitas: 30000 },
-  { nopol: "BK 7712 AC", taraBaku: 14100, kapasitas: 30000 },
-  { nopol: "BK 6650 AD", taraBaku: 13740, kapasitas: 28000 },
-  { nopol: "BK 5538 AE", taraBaku: 14260, kapasitas: 32000 },
-  { nopol: "BK 4426 AF", taraBaku: 13880, kapasitas: 30000 },
-  { nopol: "BK 3314 AG", taraBaku: 14040, kapasitas: 30000 },
-  { nopol: "BK 2202 AH", taraBaku: 13660, kapasitas: 28000 },
-  { nopol: "BK 1190 AI", taraBaku: 14320, kapasitas: 32000 },
-  { nopol: "BK 9988 AJ", taraBaku: 13910, kapasitas: 30000 },
-  { nopol: "BK 8876 AK", taraBaku: 14180, kapasitas: 30000 },
-  { nopol: "BK 7764 AL", taraBaku: 13790, kapasitas: 28000 },
-  { nopol: "BK 6652 AM", taraBaku: 14230, kapasitas: 32000 },
-  { nopol: "BK 5540 AN", taraBaku: 13870, kapasitas: 30000 },
-  { nopol: "BK 4438 AO", taraBaku: 14010, kapasitas: 30000 },
-  { nopol: "BK 3326 AP", taraBaku: 13830, kapasitas: 30000 },
+  { nopol: "KH 8199 PG", taraBaku: 4300, kapasitas: 10500 },
+  { nopol: "KH 8083 GS", taraBaku: 4820, kapasitas: 11000 },
+  { nopol: "KH 8180 PN", taraBaku: 4380, kapasitas: 10500 },
+  { nopol: "KH 8485 GP", taraBaku: 4470, kapasitas: 10500 },
+  { nopol: "KH 8067 GS", taraBaku: 4910, kapasitas: 11000 },
+  { nopol: "KH 8630 GJ", taraBaku: 4290, kapasitas: 10500 },
+  { nopol: "KH 8695 GJ", taraBaku: 4270, kapasitas: 10500 },
+  { nopol: "KH 8177 PN", taraBaku: 4530, kapasitas: 10500 },
+  { nopol: "KH 8082 GS", taraBaku: 4980, kapasitas: 11000 },
+  { nopol: "KH 8185 PN", taraBaku: 3850, kapasitas: 10000 },
+  { nopol: "KH 8068 GS", taraBaku: 4840, kapasitas: 11000 },
+  { nopol: "KH 8494 GH", taraBaku: 4750, kapasitas: 10500 },
+  { nopol: "KH 8674 GJ", taraBaku: 4150, kapasitas: 10000 },
+  { nopol: "KH 8178 PN", taraBaku: 4710, kapasitas: 10500 },
+  { nopol: "KH 8575 LD", taraBaku: 4960, kapasitas: 11000 },
+  { nopol: "DA 8908 FJ", taraBaku: 3650, kapasitas: 9500 },
 ];
 
 export const SUPIR = [
-  "Budi Santoso", "Joko Prasetyo", "Andi Wijaya", "Rudi Hartono",
-  "Samsul Bahri", "Herman Siregar", "Dedi Kurniawan", "Agus Nasution",
-  "Iwan Setiawan", "Parlin Simanjuntak", "Rahmat Hidayat", "Sugianto",
-  "Marihot Sitorus", "Eko Purnomo", "Zulkifli Lubis", "Bambang Siahaan",
+  "Diki Saputra", "Tri Wahyudi", "Kasmanudin", "Sudarso",
+  "Sutiman", "Dany Firmansyah", "Irfan Maulana", "Pratama Adi",
+  "Samsudin", "Bahadur", "Rama Pranata", "Joko Susilo",
+  "Tri Nurcahyo", "M. Arifin", "Budi Eka", "Mariman",
 ];
 
+/**
+ * Staf kantor masuk dengan username; nomor HP tetap diisi karena kolomnya
+ * wajib dan unik. Password per akun, bukan satu password untuk semua.
+ */
 export const KANTOR = [
-  { nama: "Super Admin", hp: "081299999999", peran: "OWNER" },
-  { nama: "H. Syamsir Daulay", hp: "081200000000", peran: "OWNER" },
-  { nama: "Rina Wulandari", hp: "081200000001", peran: "ADMIN" },
-  { nama: "Fitri Anggraini", hp: "081200000002", peran: "ADMIN" },
+  { nama: "Owner APN", username: "apn", hp: "081200000000", peran: "OWNER", password: "apn123" },
+  { nama: "Lilis", username: "lilis", hp: "081200000001", peran: "ADMIN", password: "lilis123" },
+  { nama: "Devi", username: "devi", hp: "081200000002", peran: "ADMIN", password: "devi123" },
 ];
 
 /** Nama jembatan timbang per lokasi, dipakai mengisi slip. */
 export const TIMBANGAN: Record<string, string> = {
-  "PKS Sei Mangkei": "Jembatan Timbang PKS Sei Mangkei",
-  "PKS Torgamba": "Jembatan Timbang PKS Torgamba",
-  "PKS Aek Nabara": "Jembatan Timbang PKS Aek Nabara",
-  "PKS Perlabian": "Jembatan Timbang PKS Perlabian",
-  "PKS Pabatu": "Jembatan Timbang PKS Pabatu",
-  "Gudang Belawan": "Timbangan Gudang Belawan",
-  "Pelabuhan Kuala Tanjung": "Timbangan Terminal Kuala Tanjung",
-  "Gudang Dumai": "Timbangan Gudang Dumai",
-  "Terminal Curah Sibolga": "Timbangan Terminal Sibolga",
+  "Mill Sungai Rangit": "Jembatan Timbang Mill Sungai Rangit",
+  "PKS Sukamara": "Jembatan Timbang PKS Sukamara",
+  "PKS Natai Baru": "Jembatan Timbang PKS Natai Baru",
+  "PKS Runtu": "Jembatan Timbang PKS Runtu",
+  "Gudang Kurnia Tunggal Nugraha": "Timbangan Gudang KTN",
+  "Pelabuhan Panglima Utar Kumai": "Timbangan Pelabuhan Kumai",
+  "Gudang Pangkalan Bun": "Timbangan Gudang Pangkalan Bun",
 };
 
 export const CATATAN_KENDALA = [

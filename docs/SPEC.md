@@ -3,12 +3,35 @@
 Status: **TERIMPLEMENTASI (v1.0)** — live di https://mauldev.my.id/apn
 (pm2 `apn-app`, port 4177 loopback, nginx `location /apn`).
 
-Akun seed: owner `081200000000` / admin `081200000001` / supir `081311110001-3`,
-semua password `admin123` — **ganti sebelum dipakai sungguhan**.
+Login menerima **username atau nomor HP**. Akun seed: owner `apn`/`apn123`,
+admin `lilis`/`lilis123` dan `devi`/`devi123`, supir pakai nomor HP
+`081311110001-16` dengan password `admin123` — **ganti sebelum dipakai
+sungguhan**.
 
 Sumber kebenaran bisnis: dokumen *"Business Process & Data Flow Analysis —
 Transportation & Logistics, Palm Kernel and Palm Shell Hauling"* plus keputusan
 klarifikasi yang tercatat di bagian 3 dokumen ini.
+
+## Revisi v1.1 — setelah membaca dokumen asli (`doc-example/`)
+
+Empat dokumen nyata dari sistem manual owner (surat SA + DO PT Sungai Rangit,
+invoice/kwitansi/faktur pajak Agustus 2026 beserta rekap 45 rit, foto bukti
+timbangan PKS, foto tanda terima gudang KTN) membatalkan sebagian asumsi awal:
+
+| Asumsi v1.0 | Kenyataan dokumen | Keputusan |
+|---|---|---|
+| Tarif shipper per ton | Surat SA: **Rp 280,00/kg** | Diubah jadi **per kg** (`tarifShipperPerKg`) |
+| Tagihan dari netto **bongkar** | Invoice memakai netto **muat** (439.530 kg) | Diubah jadi **netto muat** |
+| Bruto/tara wajib di kedua sisi | Tanda terima tujuan hanya memuat **netto** | Bruto & tara **opsional** di sisi bongkar |
+| Truk 28–32 ton | Rekap: netto **8,7–10,9 ton**, tara 3,6–5 ton | Data demo disesuaikan |
+| Lokasi Sumatera Utara | Kalimantan Tengah (Pangkalan Bun–Kumai) | Data demo disesuaikan |
+| 1 DO = 1 rit | 1 DO = 400 ton, 10 unit, **45 rit** | **DITUNDA** — menunggu contoh DO lain sebelum menambah level DO di atas Rit |
+
+Yang belum masuk sistem dan terlihat di dokumen: nomor SPB/WB, nomor segel,
+analisa mutu (FFA/moisture/dirt) berikut batas mutu DO, jam masuk & keluar
+jembatan timbang, pembeli per DO, sisa kuantum DO, kewajiban menyerahkan
+Daftar Armada H−2, serta invoice + kwitansi + faktur pajak (DPP 11/12,
+PPN 12%, PPh 2% dipotong).
 
 ---
 
@@ -41,9 +64,9 @@ Akun supir dan data truk dibuat oleh admin. Tidak ada pendaftaran mandiri.
 |---|---|---|
 | 1 | Hirarki dokumen | Kontrak/SPK → DO → rit (1:1 dengan DO) |
 | 2 | Ongkos supir | **Borongan flat per rit**, diisi saat kontrak dibuat |
-| 3 | Tagihan shipper | **Per ton × netto bongkar** |
+| 3 | Tagihan shipper | **Per kg × netto muat** |
 | 4 | Wewenang tarif | Owner & admin sama-sama boleh mengisi |
-| 5 | Penimbangan | Bruto − Tara = Netto, dicatat 2× (muat & bongkar) |
+| 5 | Penimbangan | Muat: Bruto − Tara = Netto. Bongkar: netto saja boleh, bruto/tara opsional |
 | 6 | Toleransi selisih | 20 kg; hanya kelebihannya yang dihitung |
 | 7 | Tarif selisih | Kernel Rp7.500/kg · Shell Rp1.000/kg · Besi tidak dihitung |
 | 8 | Potongan ke supir | **Tidak ada** — supir menerima ongkos penuh |
@@ -67,13 +90,13 @@ kelebihan_kg    = max(0, |selisih_kg| − 20)
 nilai_selisih   = kelebihan_kg × tarif_selisih[jenis_barang]
 
 ongkos_supir    = ongkos_borongan_per_rit        // tidak terpengaruh selisih
-tagihan_shipper = (netto_bongkar / 1000) × tarif_shipper_per_ton
+tagihan_shipper = netto_muat × tarif_shipper_per_kg
 margin_rit      = tagihan_shipper − ongkos_supir − bbm − uang_makan − klaim_shipper
 
 bayaran_bulanan = jumlah_rit_SELESAI × ongkos_borongan_per_rit
 ```
 
-**Wajib:** `ongkos_borongan_per_rit` dan `tarif_shipper_per_ton` disalin
+**Wajib:** `ongkos_borongan_per_rit` dan `tarif_shipper_per_kg` disalin
 (snapshot) ke rit saat DO diterbitkan. Perubahan tarif kontrak tidak boleh
 mengubah angka rit yang sudah berjalan atau selesai.
 
@@ -120,11 +143,11 @@ TRUK         nopol, tara_baku, kapasitas, aktif
 USER         nama, hp (login), password_hash, peran (OWNER|ADMIN|SUPIR), aktif
 KONTRAK      no_spk, shipper, jenis_barang, lokasi_asal, lokasi_tujuan,
              total_tonase, periode_mulai, periode_selesai,
-             tarif_shipper_per_ton, ongkos_supir_per_rit, status
+             tarif_shipper_per_kg, ongkos_supir_per_rit, status
 RIT          no_do, kontrak, truk, supir, tanggal_terbit, status,
              snapshot tarif (2 kolom), tiba_muat, selesai_muat,
              tiba_bongkar, selesai_bongkar, slip_fisik_diterima
-PENIMBANGAN  rit, jenis (MUAT|BONGKAR), tanggal, no_tiket, bruto, tara, netto,
+PENIMBANGAN  rit, jenis (MUAT|BONGKAR), tanggal, no_tiket, bruto?, tara?, netto,
              nama_timbangan, sumber_angka, catatan
 FOTO         rit, jenis, url, lat, lng, waktu, diupload_oleh
 TITIK_GPS    rit, lat, lng, waktu, leg, akurasi

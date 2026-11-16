@@ -40,30 +40,65 @@ export const skemaAlokasiRit = z.object({
   slipFisikDiterima: z.boolean().optional(),
 });
 
-export const skemaPenimbangan = z
+const angkaKg = (label: string) =>
+  z.coerce.number().int(`${label} harus bilangan bulat kg`).positive(`${label} wajib diisi`);
+
+const dasarPenimbangan = {
+  tanggal: z.coerce.date("Tanggal timbang wajib diisi"),
+  noTiket: teksOpsional,
+  namaTimbangan: teksOpsional,
+  sumberAngka: z.enum(SUMBER_ANGKA),
+  catatan: teksOpsional,
+};
+
+// SPEC §4: angka yang tidak berasal dari slip wajib punya catatan alasan.
+const wajibCatatanManual = {
+  periksa: (d: { sumberAngka: string; catatan: string | null }) =>
+    d.sumberAngka !== "KONFIRMASI_MANUAL" || Boolean(d.catatan),
+  pesan: { message: "Angka konfirmasi manual wajib disertai catatan", path: ["catatan"] },
+};
+
+/**
+ * Sisi MUAT: bukti timbangan PKS selalu memuat bruto, tara, dan netto.
+ * Netto tidak diinput — dihitung dari bruto − tara.
+ */
+export const skemaPenimbanganMuat = z
   .object({
-    tanggal: z.coerce.date("Tanggal timbang wajib diisi"),
-    noTiket: teksOpsional,
-    bruto: z.coerce.number().int("Bruto harus bilangan bulat kg").positive("Bruto wajib diisi"),
-    tara: z.coerce.number().int("Tara harus bilangan bulat kg").positive("Tara wajib diisi"),
-    namaTimbangan: teksOpsional,
-    sumberAngka: z.enum(SUMBER_ANGKA),
-    catatan: teksOpsional,
+    ...dasarPenimbangan,
+    bruto: angkaKg("Bruto"),
+    tara: angkaKg("Tara"),
   })
-  // Netto tidak pernah diinput; kalau bruto <= tara hasilnya mustahil.
   .refine((d) => d.bruto > d.tara, {
     message: "Bruto harus lebih besar dari tara",
     path: ["bruto"],
   })
-  // SPEC §4: angka yang tidak berasal dari slip wajib punya catatan alasan.
-  .refine((d) => d.sumberAngka !== "KONFIRMASI_MANUAL" || Boolean(d.catatan), {
-    message: "Angka konfirmasi manual wajib disertai catatan",
-    path: ["catatan"],
-  });
+  .refine(wajibCatatanManual.periksa, wajibCatatanManual.pesan);
+
+/**
+ * Sisi BONGKAR: tanda terima di gudang tujuan sering hanya mencantumkan
+ * netto, jadi bruto & tara opsional. Kalau keduanya diisi, netto dihitung
+ * dari selisihnya; kalau tidak, netto diinput langsung.
+ */
+export const skemaPenimbanganBongkar = z
+  .object({
+    ...dasarPenimbangan,
+    bruto: angkaKg("Bruto").nullish(),
+    tara: angkaKg("Tara").nullish(),
+    netto: angkaKg("Netto").nullish(),
+  })
+  .refine((d) => (d.bruto != null && d.tara != null) || d.netto != null, {
+    message: "Isi netto, atau isi bruto dan tara sekaligus",
+    path: ["netto"],
+  })
+  .refine((d) => d.bruto == null || d.tara == null || d.bruto > d.tara, {
+    message: "Bruto harus lebih besar dari tara",
+    path: ["bruto"],
+  })
+  .refine(wajibCatatanManual.periksa, wajibCatatanManual.pesan);
 
 export const skemaTimbang = z.object({
-  muat: skemaPenimbangan.nullish(),
-  bongkar: skemaPenimbangan.nullish(),
+  muat: skemaPenimbanganMuat.nullish(),
+  bongkar: skemaPenimbanganBongkar.nullish(),
   /** true = admin menekan "Simpan & Selesaikan", rit dibekukan jadi SELESAI. */
   selesaikan: z.boolean().optional(),
 });

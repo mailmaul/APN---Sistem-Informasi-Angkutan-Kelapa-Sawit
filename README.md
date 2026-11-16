@@ -52,13 +52,15 @@ Mengisi ~2,5 bulan operasi 16 truk: 400+ rit, slip timbang bergambar, jejak
 GPS, kendala, klaim, dan settlement bulanan. **Menghapus seluruh data
 transaksi yang ada** — lihat [`apn-dummy/README.md`](apn-dummy/README.md).
 
-Akun seed, semua berpassword `admin123` — **ganti sebelum dipakai sungguhan**:
+Login menerima **username atau nomor HP**. Staf kantor memakai username,
+supir cukup nomor HP. **Ganti password sebelum dipakai sungguhan**:
 
-| Peran | Nomor HP |
-|---|---|
-| Owner | `081200000000` |
-| Admin | `081200000001` |
-| Supir | `081311110001` … `081311110003` |
+| Peran | Masuk dengan | Password |
+|---|---|---|
+| Owner | `apn` atau `081200000000` | `apn123` |
+| Admin | `lilis` atau `081200000001` | `lilis123` |
+| Admin | `devi` atau `081200000002` | `devi123` |
+| Supir | `081311110001` … `081311110003` | `admin123` |
 
 ## Tumpukan teknologi
 

@@ -5,21 +5,17 @@ import { db } from "@/lib/db";
 import { galat, wajibKantor } from "@/lib/api-auth";
 import { galatPrisma } from "@/lib/prisma-galat";
 import { PERAN } from "@/lib/constants";
+import { PESAN_UNIK_PENGGUNA, skemaHp, skemaUsername } from "@/lib/validasi-pengguna";
 
-const PESAN_UNIK = { hp: "Nomor HP itu sudah dipakai pengguna lain" };
+const PESAN_UNIK = PESAN_UNIK_PENGGUNA;
 
 /** Hash cukup 10 putaran: aman untuk data ini, tetap cepat di server kecil. */
 const RONDE_BCRYPT = 10;
 
 const skemaBuat = z.object({
   nama: z.string().trim().min(2, "Nama minimal 2 huruf").max(120),
-  hp: z
-    .string()
-    .trim()
-    // Nomor sering ditulis "0813 1111 0001" — pemisahnya dibuang supaya
-    // nomor yang sama tidak bisa terdaftar dua kali dengan format berbeda.
-    .transform((v) => v.replace(/[\s.()-]/g, ""))
-    .refine((v) => /^\+?[0-9]{8,20}$/.test(v), "Nomor HP harus 8-20 angka"),
+  username: skemaUsername,
+  hp: skemaHp,
   peran: z.enum(PERAN, "Peran tidak dikenal"),
   aktif: z.boolean().optional(),
   password: z.string().min(6, "Password minimal 6 karakter").max(72),
@@ -28,6 +24,7 @@ const skemaBuat = z.object({
 const KOLOM_AMAN = {
   id: true,
   nama: true,
+  username: true,
   hp: true,
   peran: true,
   aktif: true,
@@ -47,7 +44,15 @@ export async function GET(req: NextRequest) {
     where: {
       ...(hanyaAktif ? { aktif: true } : {}),
       ...(peran && (PERAN as readonly string[]).includes(peran) ? { peran } : {}),
-      ...(q ? { OR: [{ nama: { contains: q } }, { hp: { contains: q } }] } : {}),
+      ...(q
+        ? {
+            OR: [
+              { nama: { contains: q } },
+              { hp: { contains: q } },
+              { username: { contains: q.toLowerCase() } },
+            ],
+          }
+        : {}),
     },
     orderBy: [{ aktif: "desc" }, { nama: "asc" }],
     select: KOLOM_AMAN,
@@ -73,6 +78,7 @@ export async function POST(req: NextRequest) {
     const data = await db.user.create({
       data: {
         nama: parsed.data.nama,
+        username: parsed.data.username,
         hp: parsed.data.hp,
         peran: parsed.data.peran,
         aktif: parsed.data.aktif ?? true,

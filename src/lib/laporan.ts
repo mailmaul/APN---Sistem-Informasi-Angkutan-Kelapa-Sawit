@@ -184,7 +184,7 @@ export async function susunLaporan(filter: FilterLaporan): Promise<HasilLaporan>
       trukId: true,
       supirId: true,
       kontrakId: true,
-      tarifShipperPerTonSnapshot: true,
+      tarifShipperPerKgSnapshot: true,
       ongkosSupirPerRitSnapshot: true,
       ongkosSupir: true,
       nilaiSelisih: true,

@@ -84,16 +84,25 @@ async function bersihkan() {
 }
 
 async function masterData(): Promise<Master> {
+  // Supir memakai satu password demo yang sama; staf kantor punya sendiri.
   const hash = await bcrypt.hash("admin123", 10);
 
   const kantor = [];
-  for (const k of KANTOR) {
+  for (const { password, ...k } of KANTOR) {
+    const passwordHash = await bcrypt.hash(password, 10);
     kantor.push(await db.user.upsert({
       where: { hp: k.hp },
-      update: { nama: k.nama, peran: k.peran, aktif: true, passwordHash: hash },
-      create: { ...k, passwordHash: hash },
+      update: { ...k, aktif: true, passwordHash },
+      create: { ...k, passwordHash },
     }));
   }
+
+  // Akun kantor lama di luar daftar di atas dinonaktifkan supaya demo tidak
+  // menampilkan sisa akun percobaan yang masih bisa dipakai masuk.
+  await db.user.updateMany({
+    where: { peran: { in: ["OWNER", "ADMIN"] }, hp: { notIn: KANTOR.map((k) => k.hp) } },
+    data: { aktif: false },
+  });
 
   const supir = [];
   for (let i = 0; i < SUPIR.length; i++) {
@@ -169,10 +178,13 @@ async function buatKontrak(m: Master): Promise<Kontrak[]> {
     const t = pilih(tujuan);
     const km = jarakKm(a, t);
 
-    // Tarif ikut jarak: makin jauh makin mahal per ton. Ongkos borongan supir
-    // dijaga di kisaran 30-40% tagihan supaya margin demo masuk akal.
-    const tarifShipperPerTon = Math.round((120_000 + km * 420) / 5000) * 5000;
-    const ongkosSupirPerRit = Math.round((900_000 + km * 4_200) / 50_000) * 50_000;
+    // Tarif per kg mengikuti surat SA asli (Rp 280/kg untuk rute Sungai
+    // Rangit → Kumai) lalu disesuaikan jaraknya. Ongkos borongan supir
+    // dijaga sekitar 35-45% tagihan supaya margin demo masuk akal.
+    const tarifShipperPerKg = Math.max(180, Math.round((200 + km * 0.55) / 5) * 5);
+    const muatanRataRata = 9_500; // kg, kapasitas wajar truk angkutan PK
+    const ongkosSupirPerRit =
+      Math.round((tarifShipperPerKg * muatanRataRata * 0.4) / 50_000) * 50_000;
 
     const baris = await db.kontrak.create({
       data: {
@@ -185,7 +197,7 @@ async function buatKontrak(m: Master): Promise<Kontrak[]> {
         periodeMulai: new Date(2026, r.bulan, 1),
         periodeSelesai: new Date(2026, r.bulan + 1, 0),
         status: r.status,
-        tarifShipperPerTon,
+        tarifShipperPerKg,
         ongkosSupirPerRit,
         createdById: owner.id,
       },
@@ -223,27 +235,34 @@ function jejak(a: { lat: number; lng: number }, b: { lat: number; lng: number },
  * sisanya sengaja melewati batas supaya laporan shrinkage ada isinya.
  */
 function berat(kapasitas: number, taraBaku: number) {
-  const nettoMuat = bulat(Math.round(kapasitas * 0.93), kapasitas);
-  const taraMuat = taraBaku + bulat(-90, 90);
+  // Jembatan timbang mencatat kelipatan 10 kg — rekap asli tidak pernah
+  // memuat satuan kg, jadi semua angka dibulatkan ke puluhan.
+  const bulatkan10 = (n: number) => Math.round(n / 10) * 10;
 
+  const nettoMuat = bulatkan10(bulat(Math.round(kapasitas * 0.88), kapasitas));
+  const taraMuat = bulatkan10(taraBaku + bulat(-80, 80));
+
+  // Sebaran meniru rekap Agustus: mayoritas 0 s/d −20 kg, sebagian −30 s/d
+  // −70, sesekali sampai −200, dan kadang justru bertambah karena kehujanan.
   const undi = acak();
   let selisih: number;
-  if (undi < 0.62) selisih = bulat(0, TOLERANSI_SELISIH_KG); // aman
-  else if (undi < 0.9) selisih = bulat(TOLERANSI_SELISIH_KG + 1, 90); // lewat sedikit
-  else if (undi < 0.96) selisih = bulat(91, 240); // susut besar
-  else selisih = -bulat(TOLERANSI_SELISIH_KG + 1, 120); // bertambah (kehujanan)
+  if (undi < 0.58) selisih = bulatkan10(bulat(0, TOLERANSI_SELISIH_KG));
+  else if (undi < 0.9) selisih = bulatkan10(bulat(TOLERANSI_SELISIH_KG + 1, 70));
+  else if (undi < 0.96) selisih = bulatkan10(bulat(80, 200));
+  else selisih = -bulatkan10(bulat(TOLERANSI_SELISIH_KG + 1, 90));
 
   // Sesekali tara bongkar menyimpang jauh supaya peringatan "tara mencurigakan"
   // di layar input timbangan terlihat saat demo.
-  const taraBongkar = taraBaku + (acak() < 0.05 ? bulat(240, 420) : bulat(-90, 90));
+  const taraBongkar = bulatkan10(taraBaku + (acak() < 0.05 ? bulat(240, 420) : bulat(-80, 80)));
+  const nettoBongkar = nettoMuat - selisih;
 
   return {
     brutoMuat: nettoMuat + taraMuat,
     taraMuat,
     nettoMuat,
-    brutoBongkar: nettoMuat - selisih + taraBongkar,
+    brutoBongkar: nettoBongkar + taraBongkar,
     taraBongkar,
-    nettoBongkar: nettoMuat - selisih,
+    nettoBongkar,
   };
 }
 
@@ -316,7 +335,7 @@ async function buatRit(m: Master, kontrak: Kontrak[]) {
           supirId: supir.id,
           tanggalTerbit: jam(hari, 5, 0),
           status,
-          tarifShipperPerTonSnapshot: k.tarifShipperPerTon,
+          tarifShipperPerKgSnapshot: k.tarifShipperPerKg,
           ongkosSupirPerRitSnapshot: k.ongkosSupirPerRit,
           tibaMuat: sudah("TIBA_MUAT") ? tibaMuat : null,
           selesaiMuat: sudah("SELESAI_MUAT") ? selesaiMuat : null,
@@ -325,7 +344,7 @@ async function buatRit(m: Master, kontrak: Kontrak[]) {
           selisihKg: selesai ? hasil.selisihKg : null,
           kelebihanKg: selesai ? hasil.kelebihanKg : null,
           nilaiSelisih: selesai ? hasil.nilaiSelisih : null,
-          tagihanShipper: selesai ? hitungTagihanShipper(b.nettoBongkar, k.tarifShipperPerTon) : null,
+          tagihanShipper: selesai ? hitungTagihanShipper(b.nettoMuat, k.tarifShipperPerKg) : null,
           ongkosSupir: selesai ? k.ongkosSupirPerRit : null,
           slipFisikDiterima: selesai && acak() < 0.8,
           slipFisikTanggal: selesai && acak() < 0.8 ? new Date(selesaiBongkar.getTime() + 2 * HARI_MS) : null,
@@ -527,7 +546,8 @@ async function main() {
   console.log(`  Titik GPS   : ${totalGps}`);
   console.log(`  Settlement  : ${settlement} baris`);
   console.log("  Status rit  :", hitungStatus);
-  console.log("\n  Semua akun berpassword: admin123");
+  console.log("\n  Kantor: apn/apn123 · lilis/lilis123 · devi/devi123");
+  console.log("  Supir : nomor HP 081311110001-16, password admin123");
 }
 
 main()

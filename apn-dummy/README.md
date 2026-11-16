@@ -52,10 +52,11 @@ yang sama persis.
 
 ## Akun
 
-Semua berpassword `admin123`.
+Login menerima username atau nomor HP.
 
-| Peran | Nomor HP |
-|---|---|
-| Owner | `081299999999` · `081200000000` |
-| Admin | `081200000001` · `081200000002` |
-| Supir | `081311110001` … `081311110016` |
+| Peran | Masuk dengan | Password |
+|---|---|---|
+| Owner | `apn` atau `081200000000` | `apn123` |
+| Admin | `lilis` atau `081200000001` | `lilis123` |
+| Admin | `devi` atau `081200000002` | `devi123` |
+| Supir | `081311110001` … `081311110016` | `admin123` |

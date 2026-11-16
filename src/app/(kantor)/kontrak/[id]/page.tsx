@@ -155,7 +155,7 @@ export default async function HalamanDetailKontrak({
               <Separator />
               <Baris
                 label="Tarif shipper"
-                nilai={<span className="angka">{formatRupiah(kontrak.tarifShipperPerTon)} / ton</span>}
+                nilai={<span className="angka">{formatRupiah(kontrak.tarifShipperPerKg)} / kg</span>}
               />
               <Separator />
               <Baris

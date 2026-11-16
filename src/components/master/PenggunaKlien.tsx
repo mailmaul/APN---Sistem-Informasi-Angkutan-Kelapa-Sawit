@@ -38,6 +38,7 @@ import { useMaster } from "./useMaster";
 export type BarisPengguna = {
   id: string;
   nama: string;
+  username: string | null;
   hp: string;
   peran: Peran;
   aktif: boolean;
@@ -51,6 +52,14 @@ const skema = z
     // membuat akun baru dan menyunting akun lama.
     mode: z.enum(["buat", "ubah"]),
     nama: z.string().trim().min(2, "Nama minimal 2 huruf"),
+    // Kosong untuk supir — mereka login dengan nomor HP saja.
+    username: z
+      .string()
+      .trim()
+      .refine(
+        (v) => v === "" || /^[A-Za-z0-9._-]{3,30}$/.test(v),
+        "Username 3-30 karakter: huruf, angka, titik, garis bawah, atau strip",
+      ),
     hp: z
       .string()
       .trim()
@@ -113,6 +122,7 @@ export function PenggunaKlien({
     defaultValues: {
       mode: "buat",
       nama: "",
+      username: "",
       hp: "",
       peran: "SUPIR",
       aktif: true,
@@ -129,13 +139,15 @@ export function PenggunaKlien({
     const kunci = cari.trim().toLowerCase();
     if (!kunci) return daftar;
     return daftar.filter((p) =>
-      [p.nama, p.hp, PERAN_LABEL[p.peran]].some((t) => t.toLowerCase().includes(kunci)),
+      [p.nama, p.username ?? "", p.hp, PERAN_LABEL[p.peran]].some((t) =>
+        t.toLowerCase().includes(kunci),
+      ),
     );
   }, [daftar, cari]);
 
   function bukaTambah() {
     setSunting(null);
-    reset({ mode: "buat", nama: "", hp: "", peran: "SUPIR", aktif: true, password: "" });
+    reset({ mode: "buat", nama: "", username: "", hp: "", peran: "SUPIR", aktif: true, password: "" });
     setFormBuka(true);
   }
 
@@ -144,6 +156,7 @@ export function PenggunaKlien({
     reset({
       mode: "ubah",
       nama: baris.nama,
+      username: baris.username ?? "",
       hp: baris.hp,
       peran: baris.peran,
       aktif: baris.aktif,
@@ -155,6 +168,8 @@ export function PenggunaKlien({
   const simpan = handleSubmit(async (nilai) => {
     const dasar = {
       nama: nilai.nama,
+      // String kosong dikirim apa adanya; server menyimpannya sebagai null.
+      username: nilai.username,
       hp: nilai.hp,
       peran: nilai.peran,
       aktif: nilai.aktif,
@@ -234,7 +249,7 @@ export function PenggunaKlien({
   return (
     <>
       <KerangkaMaster
-        deskripsi="Akun owner, admin kantor, dan supir. Login memakai nomor HP — akun yang dinonaktifkan langsung ditolak saat login."
+        deskripsi="Akun owner, admin kantor, dan supir. Login pakai username atau nomor HP — akun yang dinonaktifkan langsung ditolak."
         cari={cari}
         onCari={setCari}
         placeholderCari="Cari nama atau nomor HP"
@@ -245,6 +260,7 @@ export function PenggunaKlien({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Nama</TableHead>
+              <TableHead>Username</TableHead>
               <TableHead>Nomor HP</TableHead>
               <TableHead>Peran</TableHead>
               <TableHead className="text-right">Rit</TableHead>
@@ -279,6 +295,9 @@ export function PenggunaKlien({
                       <span className="ml-2 text-xs text-muted-foreground">(Anda)</span>
                     ) : null}
                   </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {baris.username ?? <span className="text-xs italic">—</span>}
+                  </TableCell>
                   <TableCell className="angka text-muted-foreground">{baris.hp}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {PERAN_LABEL[baris.peran]}
@@ -306,13 +325,22 @@ export function PenggunaKlien({
             <DialogDescription>
               {sunting
                 ? "Kosongkan password kalau tidak ingin menggantinya."
-                : "Nomor HP dipakai sebagai nama pengguna saat login."}
+                : "Staf kantor masuk pakai username; supir cukup nomor HP."}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={simpan} className="grid gap-3">
             <Bidang label="Nama lengkap" htmlFor="nama" galat={errors.nama?.message}>
               <Input id="nama" placeholder="Budi Santoso" autoFocus {...register("nama")} />
+            </Bidang>
+
+            <Bidang
+              label="Username"
+              htmlFor="username"
+              galat={errors.username?.message}
+              petunjuk="Dipakai staf kantor untuk login. Kosongkan untuk supir."
+            >
+              <Input id="username" autoCapitalize="none" placeholder="lilis" {...register("username")} />
             </Bidang>
 
             <Bidang

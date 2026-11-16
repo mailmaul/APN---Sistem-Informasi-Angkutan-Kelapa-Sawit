@@ -57,14 +57,20 @@ export function hitungSelisih(
   };
 }
 
-/** Pemasukan APN dari shipper: per ton netto bongkar. */
-export function hitungTagihanShipper(nettoBongkarKg: number, tarifPerTon: number): number {
-  return Math.round((nettoBongkarKg / 1000) * tarifPerTon);
+/**
+ * Pemasukan APN dari shipper.
+ *
+ * Dasarnya NETTO MUAT, bukan netto bongkar — invoice yang berjalan menagih
+ * seluruh tonase yang dimuat di PKS, sementara susut di jalan diselesaikan
+ * terpisah lewat penggantian. Tarifnya per KG sesuai surat SA shipper.
+ */
+export function hitungTagihanShipper(nettoMuatKg: number, tarifPerKg: number): number {
+  return nettoMuatKg * tarifPerKg;
 }
 
 export type RingkasanMarginInput = {
-  nettoBongkarKg: number;
-  tarifShipperPerTon: number;
+  nettoMuatKg: number;
+  tarifShipperPerKg: number;
   ongkosSupirPerRit: number;
   totalBiaya: number;
   klaimShipper?: number;
@@ -80,7 +86,7 @@ export type RingkasanMargin = {
 
 /** Margin kotor satu rit. Selisih berat tidak masuk sini — masuk lewat klaim. */
 export function hitungMargin(input: RingkasanMarginInput): RingkasanMargin {
-  const tagihanShipper = hitungTagihanShipper(input.nettoBongkarKg, input.tarifShipperPerTon);
+  const tagihanShipper = hitungTagihanShipper(input.nettoMuatKg, input.tarifShipperPerKg);
   const klaimShipper = input.klaimShipper ?? 0;
 
   return {

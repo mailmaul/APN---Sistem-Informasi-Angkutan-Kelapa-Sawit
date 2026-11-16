@@ -30,7 +30,7 @@ export type OpsiKontrak = {
   jenisBarang: string;
   rute: string;
   totalTonase: number;
-  tarifShipperPerTon: number;
+  tarifShipperPerKg: number;
   ongkosSupirPerRit: number;
 };
 
@@ -139,7 +139,7 @@ export function FormTerbitDo({
               <div className="flex justify-between gap-3">
                 <dt className="text-xs text-muted-foreground">Tarif shipper</dt>
                 <dd className="angka font-medium">
-                  {formatRupiah(terpilih.tarifShipperPerTon)} / ton
+                  {formatRupiah(terpilih.tarifShipperPerKg)} / kg
                 </dd>
               </div>
               <div className="flex justify-between gap-3">

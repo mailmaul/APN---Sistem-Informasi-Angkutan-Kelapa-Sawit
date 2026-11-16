@@ -16,17 +16,35 @@ const NOPOL = [
 async function main() {
   const hash = await bcrypt.hash("admin123", 10);
 
+  // Staf kantor masuk dengan username; supir cukup nomor HP.
   const owner = await db.user.upsert({
     where: { hp: "081200000000" },
     update: {},
-    create: { nama: "Owner APN", hp: "081200000000", passwordHash: hash, peran: "OWNER" },
+    create: {
+      nama: "Owner APN",
+      username: "apn",
+      hp: "081200000000",
+      passwordHash: await bcrypt.hash("apn123", 10),
+      peran: "OWNER",
+    },
   });
 
-  await db.user.upsert({
-    where: { hp: "081200000001" },
-    update: {},
-    create: { nama: "Admin Kantor", hp: "081200000001", passwordHash: hash, peran: "ADMIN" },
-  });
+  for (const a of [
+    { nama: "Lilis", username: "lilis", hp: "081200000001", password: "lilis123" },
+    { nama: "Devi", username: "devi", hp: "081200000002", password: "devi123" },
+  ]) {
+    await db.user.upsert({
+      where: { hp: a.hp },
+      update: {},
+      create: {
+        nama: a.nama,
+        username: a.username,
+        hp: a.hp,
+        passwordHash: await bcrypt.hash(a.password, 10),
+        peran: "ADMIN",
+      },
+    });
+  }
 
   for (let i = 0; i < NOPOL.length; i++) {
     await db.truk.upsert({
@@ -69,8 +87,8 @@ async function main() {
   }
 
   console.log("Seed selesai.");
-  console.log(`  Owner : 081200000000 / admin123 (${owner.nama})`);
-  console.log("  Admin : 081200000001 / admin123");
+  console.log(`  Owner : apn / apn123 (${owner.nama})`);
+  console.log("  Admin : lilis / lilis123 · devi / devi123");
   console.log("  Supir : 081311110001-3 / admin123");
   console.log(`  ${NOPOL.length} truk, ${lokasi.length} lokasi, ${shipper.length} shipper`);
 }
