@@ -33,6 +33,30 @@ jembatan timbang, pembeli per DO, sisa kuantum DO, kewajiban menyerahkan
 Daftar Armada H−2, serta invoice + kwitansi + faktur pajak (DPP 11/12,
 PPN 12%, PPh 2% dipotong).
 
+
+## Revisi v1.2 — setelah membaca DO asli perusahaan
+
+Berkas `doc-example/DO MKM SJIM 0015 375 TON.pdf` adalah DO yang diterbitkan
+APN sendiri (bukan DO shipper). Catatan kakinya mengubah dua aturan uang:
+
+> *"Semua kesusutan yang melebihi toleransi 0,2% di tanggung oleh driver atau
+> pemilik kendaraan"*
+
+| Asumsi sebelumnya | Kenyataan dokumen | Keputusan |
+|---|---|---|
+| Susut = kerugian perusahaan, supir tidak dipotong | DO: ditanggung driver / pemilik kendaraan | **Supir dipotong**; owner boleh memaafkan per kasus dengan alasan |
+| Toleransi 20 kg tanpa dasar | DO menulis 0,2% (= 20 kg pada muatan 10 ton) | **Tetap 20 kg flat** atas keputusan owner, persentase diabaikan |
+| Tarif selisih tetap | — | Default tetap, **boleh ditimpa per kontrak** |
+| Satu badan usaha | DO: **PT** Adila **Paris** Nusantara · Faktur: **CV** Adila **Perdana** Nusantara | Penerbit dokumen **dipilih per kontrak**; data entitas kedua menyusul |
+
+Potongan tidak dibatasi nilainya (boleh melebihi ongkos rit sehingga menjadi
+saldo utang supir), tetapi owner punya wewenang memaafkan. Setiap pemaafan
+wajib menyimpan alasan dan siapa yang memberi — ini satu-satunya jalan keluar
+dari potongan, supaya tidak ada pengurangan diam-diam.
+
+**Wajib di UI:** supir harus bisa melihat rincian potongan per rit (selisih
+kg, tarif, nilai), bukan hanya total bayaran yang mengecil tanpa penjelasan.
+
 ---
 
 ## 1. Konteks bisnis
@@ -68,10 +92,10 @@ Akun supir dan data truk dibuat oleh admin. Tidak ada pendaftaran mandiri.
 | 4 | Wewenang tarif | Owner & admin sama-sama boleh mengisi |
 | 5 | Penimbangan | Muat: Bruto − Tara = Netto. Bongkar: netto saja boleh, bruto/tara opsional |
 | 6 | Toleransi selisih | 20 kg; hanya kelebihannya yang dihitung |
-| 7 | Tarif selisih | Kernel Rp7.500/kg · Shell Rp1.000/kg · Besi tidak dihitung |
-| 8 | Potongan ke supir | **Tidak ada** — supir menerima ongkos penuh |
-| 9 | Bonus ke supir | **Tidak ada** — selisih dua arah hanya dicatat |
-| 10 | Susut | Dicatat sebagai kerugian perusahaan |
+| 7 | Tarif selisih | Default Kernel Rp7.500/kg · Shell Rp1.000/kg · Besi tidak dihitung — **boleh ditimpa per kontrak** |
+| 8 | Potongan ke supir | **Ada** — susut di luar toleransi dipotong dari bayaran (DO: *"ditanggung driver atau pemilik kendaraan"*) |
+| 9 | Bonus ke supir | **Tidak ada** — selisih negatif hanya dicatat |
+| 10 | Susut | Dibebankan ke supir; owner boleh memaafkan sebagian/seluruhnya dengan catatan alasan |
 | 11 | Klaim shipper | Dicatat per rit |
 | 12 | BBM & uang makan | Biaya perusahaan murni, tidak memotong ongkos supir |
 | 13 | Settlement supir | Bulanan |
@@ -87,13 +111,15 @@ netto_bongkar   = bruto_bongkar − tara_bongkar
 selisih_kg      = netto_muat − netto_bongkar     // positif = berkurang
 
 kelebihan_kg    = max(0, |selisih_kg| − 20)
-nilai_selisih   = kelebihan_kg × tarif_selisih[jenis_barang]
+tarif           = kontrak.tarif_selisih_per_kg ?? default[jenis_barang]
+nilai_selisih   = kelebihan_kg × tarif          // hanya selisih POSITIF yang dipotong
 
-ongkos_supir    = ongkos_borongan_per_rit        // tidak terpengaruh selisih
+potongan_supir  = selisih_kg > 0 ? nilai_selisih − pemaafan : 0
+bayaran_rit     = ongkos_borongan_per_rit − potongan_supir   // boleh negatif → saldo utang
 tagihan_shipper = netto_muat × tarif_shipper_per_kg
-margin_rit      = tagihan_shipper − ongkos_supir − bbm − uang_makan − klaim_shipper
+margin_rit      = tagihan_shipper − ongkos_borongan_per_rit − bbm − uang_makan − klaim_shipper
 
-bayaran_bulanan = jumlah_rit_SELESAI × ongkos_borongan_per_rit
+bayaran_bulanan = Σ ongkos_borongan_per_rit − Σ potongan_supir
 ```
 
 **Wajib:** `ongkos_borongan_per_rit` dan `tarif_shipper_per_kg` disalin

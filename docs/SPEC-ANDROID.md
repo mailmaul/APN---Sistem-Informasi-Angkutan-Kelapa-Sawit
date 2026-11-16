@@ -24,7 +24,7 @@ sedang aktif, lalu menjalankan dan melaporkan rit sampai selesai.
 | 6 | Distribusi | **APK langsung** (bukan Play Store) |
 | 7 | Angka timbangan | Tetap diketik **admin kantor** dari foto slip |
 | 8 | Definisi selesai | Rit `SELESAI` hanya setelah admin memasukkan angka |
-| 9 | DO PDF | Dibuat **server**, format sendiri, foto selfie jadi lampiran |
+| 9 | DO PDF | Dibuat **server**, **meniru persis** `doc-example/DO MKM SJIM 0015 375 TON.pdf` |
 | 10 | Akun supir | **Daftar sendiri**, admin memverifikasi sebelum boleh mengajukan |
 | 11 | Checkpoint | Tombol "Tiba di lokasi" **tetap ada** (dasar hitung lama antri) |
 | 12 | Rit bersamaan | **Satu rit aktif** per supir |
@@ -189,10 +189,63 @@ Keputusan tata letak yang membedakan dari template bawaan:
 
 ---
 
-## 11. Pertanyaan terbuka
+## 11. Format DO PDF
 
-1. Format nomor DO untuk PDF yang diterbitkan APN sendiri.
-2. Siapa yang namanya tercantum sebagai penanda tangan di PDF.
-3. Daftar Telegram ID yang berhak menyetujui.
-4. Apakah supir lepas perlu mengunggah foto SIM & STNK saat mendaftar.
-5. Berapa lama pengajuan otomatis kedaluwarsa bila tidak direspons.
+Meniru persis DO yang dipakai perusahaan sekarang — satu halaman berisi
+**dua rangkap identik** (karbon): *PUTIH untuk PKS KIRIM, MERAH untuk PKS
+TERIMA*.
+
+Susunan tiap rangkap:
+
+1. **Kop**: logo APN + nama badan usaha penerbit (dipilih per kontrak) +
+   `Jl. HM Rafii No.404, Perum. Cemara Permai` + `Kab. Kotawaringin Barat,
+   Kalimantan Tengah`.
+2. **Blok kiri**: TANGGAL DO · NO KONTRAK · NO DO · QUANTITY.
+   **Blok kanan**: `Kepada :` nama shipper + nama PKS.
+3. **Tabel** "Kepada pembawa DO ini harap diserahkan":
+   JENIS BARANG · TUJUAN · TRANSPORTIR · DRIVER + SIM · NO. POL + HP.
+   Empat kolom terakhir ditulis tangan pada versi manual; **versi app
+   mengisinya otomatis dari data pengajuan**.
+4. **Blok TRANSPORTIR**: stempel + tanda tangan (gambar), tanpa nama tercetak.
+5. **Kaki**: tiga kolom tanda tangan — PT/CV penerbit · DRIVER · P K S.
+6. **Notes** (persis apa adanya):
+   - PUTIH untuk PKS KIRIM, MERAH untuk PKS TERIMA
+   - Semua kesusutan yang melebihi toleransi 0,2% di tanggung oleh driver atau pemilik kendaraan
+   - DO copy, coretan atau palsu jangan dilayani
+
+Karena cetakan digital umumnya hitam-putih, tiap rangkap diberi label jelas
+(`PUTIH — PKS KIRIM` / `MERAH — PKS TERIMA`) agar tetap bisa dibedakan.
+
+### Penomoran
+
+Mengikuti pola dokumen asli:
+
+```
+NO DO       0015/KTM/DO-PK/10/2026
+            urut / kode-tujuan / DO-jenisBarang / bulan / tahun
+NO KONTRAK  0015/MKM-SIM/PK/10/2026
+            urut / kode-shipper-pembeli / jenisBarang / bulan / tahun
+```
+
+Nomor urut berjalan per bulan dan dikunci saat pengajuan disetujui, bukan saat
+form dikirim — supaya pengajuan yang ditolak tidak membakar nomor.
+
+---
+
+## 12. Kedaluwarsa pengajuan
+
+Pengajuan yang tidak direspons **1×24 jam** sejak dikirim otomatis berstatus
+`KEDALUWARSA`, slot kuotanya dilepas, dan supir diberi tahu. Dijalankan oleh
+tugas terjadwal di server, bukan oleh app — supaya tetap berjalan walau app
+tidak dibuka.
+
+---
+
+## 13. Pertanyaan terbuka
+
+1. Daftar Telegram ID yang berhak menyetujui — *ditunda, diisi saat bot disambungkan*.
+2. Apakah supir lepas perlu mengunggah foto SIM & STNK saat mendaftar — *ditunda*.
+3. Data badan usaha kedua (NPWP, logo, stempel) untuk penerbit alternatif.
+
+Sudah terjawab: format nomor DO dan penanda tangan (§11, dari dokumen asli),
+serta kedaluwarsa pengajuan 1×24 jam (§12).
