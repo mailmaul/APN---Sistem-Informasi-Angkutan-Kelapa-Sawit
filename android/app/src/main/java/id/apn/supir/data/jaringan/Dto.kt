@@ -131,6 +131,8 @@ data class RitAktifDto(
     val alamatBongkar: String? = null,
     val shipper: String,
     val doPdfUrl: String? = null,
+    /** Kuantitas DO dalam kilogram, dipakai pada baris QUANTITY di DO. */
+    val kuantitasKg: Int? = null,
     val tibaMuat: String? = null,
     val selesaiMuat: String? = null,
     val tibaBongkar: String? = null,

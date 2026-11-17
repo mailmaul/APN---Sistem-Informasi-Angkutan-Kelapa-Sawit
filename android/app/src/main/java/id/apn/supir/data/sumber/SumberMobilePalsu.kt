@@ -125,6 +125,7 @@ class SumberMobilePalsu @Inject constructor(
             alamatBongkar = "Gudang KTN, Pangkalan Bun",
             shipper = po.shipper,
             doPdfUrl = "api/do/$ritId.pdf",
+            kuantitasKg = 10_000,
         )
         k.po = k.po.map { if (it.id == po.id) it.copy(unitTerpakai = it.unitTerpakai + 1) else it }
         k.pengajuan = k.pengajuan.map {
@@ -263,15 +264,16 @@ class SumberMobilePalsu @Inject constructor(
 
     override suspend fun unduhDo(path: String, tujuan: File): Hasil<File> = dengan { k ->
         val rit = k.rit ?: return@dengan Hasil.Galat("DO belum terbit", 404)
-        val po = k.po.firstOrNull { it.noSpk.isNotBlank() && rit.shipper == it.shipper }
+        val po = k.po.firstOrNull { it.shipper == rit.shipper }
         Hasil.Sukses(
             PembuatDoPalsu.tulis(
+                context,
                 PembuatDoPalsu.Isi(
                     noDo = rit.noDo,
                     noKontrak = po?.noSpk ?: "-",
                     tanggal = System.currentTimeMillis(),
-                    quantity = "1 UNIT",
-                    shipper = rit.shipper,
+                    kuantitasKg = rit.kuantitasKg,
+                    pembeli = rit.shipper,
                     pks = rit.lokasiMuat,
                     jenisBarang = rit.jenisBarang.replace('_', ' '),
                     tujuan = rit.lokasiBongkar,

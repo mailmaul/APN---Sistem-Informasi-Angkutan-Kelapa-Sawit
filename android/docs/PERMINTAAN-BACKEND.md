@@ -121,6 +121,7 @@ Klien melakukan polling 10 detik selama `DIAJUKAN`.
     "alamatBongkar": "Jl. ...",              // opsional
     "shipper": "PT Mitra Karya Mandiri",
     "doPdfUrl": "api/do/rit-....pdf",        // relatif terhadap base URL, opsional
+    "kuantitasKg": 375000,                   // isi baris QUANTITY pada DO, opsional
     "tibaMuat": null, "selesaiMuat": null,
     "tibaBongkar": null, "selesaiBongkar": null,
     "fotoSlipMuatUrl": null, "fotoSlipBongkarUrl": null
@@ -185,11 +186,17 @@ diambil dari `src/lib/perhitungan.ts` supaya identik dengan web admin.
 - DO PDF `GET /api/do/:id.pdf`:
   - dibalas dengan `Content-Type: application/pdf` dan badan PDF (bukan HTML
     atau redirect ke halaman login) untuk permintaan bersesi supir;
-  - `rit.doPdfUrl` berisi path relatif terhadap base URL, mis. `api/do/<ritId>.pdf`.
+  - `rit.doPdfUrl` berisi path relatif terhadap base URL, mis. `api/do/<ritId>.pdf`;
+  - tata letaknya mengikuti `doc-example/DO MKM SJIM 0015 375 TON.pdf` — A4 satu
+    halaman, dua rangkap identik, kop dengan logo di kiri, tabel lima baris,
+    stempel bertanda tangan, tiga kolom tanda tangan, tiga baris notes. Versi
+    perangkat (`PembuatDoPalsu`) sudah mereproduksinya memakai aset
+    `doc-example/apn-logo.svg`, `apn-stempel.svg`, dan `tanda-tangan.svg`;
+    pakai berkas yang sama supaya DO server identik.
 
   Klien **mengunduh** berkasnya memakai sesi aplikasi lalu membukanya lewat
   FileProvider (Intent VIEW) dan membagikannya sebagai berkas (Intent SEND).
   URL mentah tidak pernah dilempar ke browser — browser tanpa cookie hanya
-  menerima `{"error":"Belum login"}`. Selama endpoint belum ada, mode palsu
-  membuat PDF pratinjau di perangkat (`PembuatDoPalsu`), bertanda
-  "PRATINJAU LOKAL" supaya tidak tertukar dengan DO resmi.
+  menerima `{"error":"Belum login"}`. Selama endpoint belum ada, DO dibuat di
+  perangkat oleh `PembuatDoPalsu`; hapus pembuat itu begitu endpoint resminya
+  hidup supaya tidak ada dua sumber DO.

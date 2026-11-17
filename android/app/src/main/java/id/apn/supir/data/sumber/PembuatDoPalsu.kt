@@ -1,9 +1,17 @@
 package id.apn.supir.data.sumber
 
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Matrix
+import android.graphics.Path
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
+import androidx.core.content.res.ResourcesCompat
+import androidx.core.graphics.PathParser
+import androidx.core.graphics.withSave
+import id.apn.supir.R
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -12,11 +20,14 @@ import java.util.Locale
 /**
  * Pembuat DO PDF untuk mode pengembangan.
  *
- * DO yang sah dibuat server (SPEC-ANDROID.md §11); berkas ini hanya mengisi
- * lubang selama `GET /api/do/:id.pdf` belum ada, supaya tombol Buka/Bagikan DO
- * bisa diuji sungguhan di perangkat. Tata letaknya mengikuti dokumen asli —
- * satu halaman, dua rangkap identik — dan setiap halaman diberi tanda pratinjau
- * supaya tidak pernah tertukar dengan DO resmi.
+ * Tata letak meniru `doc-example/DO MKM SJIM 0015 375 TON.pdf`: satu halaman
+ * A4 berisi dua rangkap identik, kop dengan logo di kiri, blok kiri/kanan,
+ * tabel lima baris, stempel bertanda tangan, tiga kolom tanda tangan, dan tiga
+ * baris catatan. Ukuran dipakai dalam poin (1/72 inci) sesuai satuan PdfDocument.
+ *
+ * DO yang sah tetap diterbitkan server (SPEC-ANDROID.md §11); berkas ini hanya
+ * menambal selama `GET /api/do/:id.pdf` belum ada. Hapus bersama
+ * [SumberMobilePalsu] begitu endpointnya hidup.
  */
 internal object PembuatDoPalsu {
 
@@ -24,8 +35,9 @@ internal object PembuatDoPalsu {
         val noDo: String,
         val noKontrak: String,
         val tanggal: Long,
-        val quantity: String,
-        val shipper: String,
+        /** Kuantitas DO dalam kilogram; null bila server belum mengirimkannya. */
+        val kuantitasKg: Int?,
+        val pembeli: String,
         val pks: String,
         val jenisBarang: String,
         val tujuan: String,
@@ -38,17 +50,24 @@ internal object PembuatDoPalsu {
 
     private const val LEBAR = 595
     private const val TINGGI = 842
-    private const val MARGIN = 36f
+
+    /** Tepi kiri/kanan isi, diukur dari garis horizontal pada contoh DO. */
+    private const val KIRI = 54f
+    private const val KANAN = 541f
+
+    /** Jarak antara garis atas rangkap pertama dan rangkap kedua. */
+    private const val JARAK_RANGKAP = 397f
+    private const val RANGKAP_PERTAMA = 28f
 
     private val formatTanggal = SimpleDateFormat("d MMMM yyyy", Locale("id", "ID"))
+    private val formatRibuan = Locale("id", "ID")
 
-    fun tulis(isi: Isi, tujuan: File): File {
+    fun tulis(context: Context, isi: Isi, tujuan: File): File {
         val dokumen = PdfDocument()
         val halaman = dokumen.startPage(PdfDocument.PageInfo.Builder(LEBAR, TINGGI, 1).create())
 
-        val kanvas = halaman.canvas
-        gambarRangkap(kanvas, isi, atas = 28f, label = "PUTIH — PKS KIRIM")
-        gambarRangkap(kanvas, isi, atas = 436f, label = "MERAH — PKS TERIMA")
+        gambarRangkap(context, halaman.canvas, isi, RANGKAP_PERTAMA)
+        gambarRangkap(context, halaman.canvas, isi, RANGKAP_PERTAMA + JARAK_RANGKAP)
 
         dokumen.finishPage(halaman)
         tujuan.parentFile?.mkdirs()
@@ -57,113 +76,214 @@ internal object PembuatDoPalsu {
         return tujuan
     }
 
-    private fun paint(ukuran: Float, tebal: Boolean = false) = Paint().apply {
+    private fun teks(ukuran: Float, tebal: Boolean = false, miring: Boolean = false) = Paint().apply {
         isAntiAlias = true
         textSize = ukuran
-        typeface = Typeface.create(Typeface.SANS_SERIF, if (tebal) Typeface.BOLD else Typeface.NORMAL)
+        typeface = Typeface.create(
+            Typeface.SERIF,
+            when {
+                tebal && miring -> Typeface.BOLD_ITALIC
+                tebal -> Typeface.BOLD
+                miring -> Typeface.ITALIC
+                else -> Typeface.NORMAL
+            },
+        )
     }
 
-    private fun gambarRangkap(kanvas: Canvas, isi: Isi, atas: Float, label: String) {
-        val garis = Paint().apply { strokeWidth = 0.8f }
-        val kecil = paint(7f)
-        val biasa = paint(8.5f)
-        val tebal = paint(9f, tebal = true)
-        val judul = paint(13f, tebal = true)
+    private fun garisTipis() = Paint().apply {
+        isAntiAlias = true
+        strokeWidth = 0.7f
+        style = Paint.Style.STROKE
+    }
 
-        var y = atas
+    private fun gambarRangkap(context: Context, kanvas: Canvas, isi: Isi, atas: Float) {
+        val garisTebal = Paint().apply { isAntiAlias = true; strokeWidth = 1.1f }
+        val garis = garisTipis()
 
-        kanvas.drawText(label, MARGIN, y, paint(7.5f, tebal = true))
-        y += 16f
+        val label = teks(8f)
+        val nilai = teks(8f)
+        val nilaiTebal = teks(8.5f, tebal = true)
+        val judul = teks(16.5f, tebal = true)
+        val alamat = teks(9f, tebal = true)
+        val tabel = teks(7.5f)
+        val catatan = teks(6.8f, miring = true)
+        val kecil = teks(7f)
 
-        kanvas.drawText("PT ADILA PARIS NUSANTARA", MARGIN, y, judul)
-        y += 12f
-        kanvas.drawText("Jl. HM Rafii No.404, Perum. Cemara Permai", MARGIN, y, kecil)
-        y += 10f
-        kanvas.drawText("Kab. Kotawaringin Barat, Kalimantan Tengah", MARGIN, y, kecil)
-        y += 8f
-        kanvas.drawLine(MARGIN, y, LEBAR - MARGIN, y, garis)
-        y += 18f
+        fun baris(y: Float) = atas + y
 
-        val kiri = MARGIN
-        val kanan = LEBAR / 2f + 20f
-        val barisKiri = listOf(
+        // ── Kop ──
+        kanvas.drawLine(KIRI, baris(0f), KANAN, baris(0f), garisTebal)
+
+        val logoKiri = KIRI + 6f
+        val logoLebar = 96f
+        val logoAtas = baris(10f)
+        ResourcesCompat.getDrawable(context.resources, R.drawable.do_logo, null)?.let { logo ->
+            logo.setBounds(
+                logoKiri.toInt(),
+                logoAtas.toInt(),
+                (logoKiri + logoLebar).toInt(),
+                (logoAtas + logoLebar * 178f / 320f).toInt(),
+            )
+            logo.draw(kanvas)
+        }
+
+        // Judul & alamat dipusatkan pada ruang di kanan logo, persis seperti contoh.
+        val pusatKop = (logoKiri + logoLebar + KANAN) / 2f
+        judul.textAlign = Paint.Align.CENTER
+        alamat.textAlign = Paint.Align.CENTER
+        kanvas.drawText("PT ADILA PARIS NUSANTARA", pusatKop, baris(21f), judul)
+        kanvas.drawText("Jl. HM Rafii No.404, Perum. Cemara Permai", pusatKop, baris(39f), alamat)
+        kanvas.drawText("Kab. Kotawaringin Barat, Kalimantan Tengah", pusatKop, baris(60f), alamat)
+        kanvas.drawLine(KIRI, baris(66f), KANAN, baris(66f), garisTebal)
+
+        // ── Blok kiri: identitas DO ──
+        val kolomNilai = KIRI + 120f
+        listOf(
             "TANGGAL DO" to formatTanggal.format(Date(isi.tanggal)),
             "NO KONTRAK" to isi.noKontrak,
             "NO DO" to isi.noDo,
-            "QUANTITY" to isi.quantity,
-        )
-        barisKiri.forEachIndexed { indeks, (nama, nilai) ->
-            val barisY = y + indeks * 13f
-            kanvas.drawText(nama, kiri, barisY, biasa)
-            kanvas.drawText(": $nilai", kiri + 78f, barisY, tebal)
+            "QUANTITY" to (isi.kuantitasKg?.let { "${String.format(formatRibuan, "%,d", it)} KG" } ?: "—"),
+        ).forEachIndexed { indeks, (nama, teksNilai) ->
+            val y = baris(76f + indeks * 12.6f)
+            kanvas.drawText(nama, KIRI + 2f, y, label)
+            kanvas.drawText(teksNilai, kolomNilai, y, nilai)
         }
 
-        kanvas.drawText("Kepada :", kanan, y, biasa)
-        kanvas.drawText(isi.shipper, kanan, y + 13f, tebal)
-        kanvas.drawText(isi.pks, kanan, y + 26f, tebal)
+        // ── Blok kanan: penerima ──
+        kanvas.drawText("Kepada :", KIRI + 248f, baris(76f), nilaiTebal)
+        kanvas.drawText(isi.pembeli, KIRI + 299f, baris(76f), nilaiTebal)
+        kanvas.drawText(isi.pks, KIRI + 299f, baris(88.6f), nilaiTebal)
 
-        y += 4 * 13f + 14f
-        kanvas.drawText("Kepada pembawa DO ini harap diserahkan :", MARGIN, y, biasa)
-        y += 10f
+        // ── Tabel muatan ──
+        kanvas.drawText("Kepada pembawa DO ini harap diserahkan:", KIRI + 55f, baris(138f), kecil)
 
-        val kolom = listOf(
-            "JENIS BARANG" to isi.jenisBarang,
-            "TUJUAN" to isi.tujuan,
-            "TRANSPORTIR" to isi.transportir,
-            "DRIVER / SIM" to "${isi.driver} / ${isi.noSim}",
-            "NO. POL / HP" to "${isi.nopol} / ${isi.noHp}",
+        val tabelKiri = KIRI + 58f
+        val tabelKanan = KIRI + 409f
+        val kolomLabel = tabelKiri + 100f
+        val kolomSim = tabelKiri + 190f
+        val tabelAtas = baris(142f)
+        val tinggiBaris = 12.2f
+
+        val isiTabel = listOf(
+            Triple("JENIS BARANG", isi.jenisBarang, null),
+            Triple("TUJUAN", isi.tujuan, null),
+            Triple("TRANSPORTIR", isi.transportir, null),
+            Triple("DRIVER", isi.driver, "SIM: ${isi.noSim}"),
+            Triple("NO. POL", isi.nopol, "HP: ${isi.noHp}"),
         )
-        val lebarKolom = (LEBAR - 2 * MARGIN) / kolom.size
-        val tinggiBaris = 34f
-        kanvas.drawRect(MARGIN, y, LEBAR - MARGIN, y + tinggiBaris + 14f, Paint().apply { style = Paint.Style.STROKE; strokeWidth = 0.8f })
-        kolom.forEachIndexed { indeks, (nama, nilai) ->
-            val x = MARGIN + indeks * lebarKolom
-            if (indeks > 0) kanvas.drawLine(x, y, x, y + tinggiBaris + 14f, garis)
-            kanvas.drawText(nama, x + 4f, y + 10f, kecil)
-            potongTeks(nilai, lebarKolom - 8f, biasa).forEachIndexed { b, teks ->
-                kanvas.drawText(teks, x + 4f, y + 24f + b * 10f, biasa)
+
+        isiTabel.forEachIndexed { indeks, (nama, utama, tambahan) ->
+            val y = tabelAtas + indeks * tinggiBaris
+            val dasar = y + tinggiBaris
+            kanvas.drawRect(tabelKiri, y, tabelKanan, dasar, garis)
+            kanvas.drawLine(kolomLabel, y, kolomLabel, dasar, garis)
+            kanvas.drawText(nama, tabelKiri + 3f, dasar - 3.5f, tabel)
+            kanvas.drawText(utama, kolomLabel + 3f, dasar - 3.5f, tabel)
+            if (tambahan != null) {
+                // Dua baris terakhir pada contoh punya sekat tambahan untuk SIM dan HP.
+                kanvas.drawLine(kolomSim, y, kolomSim, dasar, garis)
+                kanvas.drawText(tambahan, kolomSim + 3f, dasar - 3.5f, tabel)
             }
         }
-        kanvas.drawLine(MARGIN, y + 14f, LEBAR - MARGIN, y + 14f, garis)
-        y += tinggiBaris + 14f + 24f
 
-        kanvas.drawText("TRANSPORTIR", MARGIN, y, biasa)
-        kanvas.drawRect(MARGIN, y + 6f, MARGIN + 150f, y + 56f, Paint().apply { style = Paint.Style.STROKE; strokeWidth = 0.6f })
-        kanvas.drawText("stempel & tanda tangan", MARGIN + 8f, y + 34f, kecil)
+        // ── Stempel + tanda tangan transportir ──
+        val stempelKiri = KIRI + 34f
+        val stempelLebar = 86f
+        val stempelAtas = baris(225f)
+        val stempelTinggi = stempelLebar * 214f / 320f
 
-        val kolomTtd = listOf("PT / CV PENERBIT", "DRIVER", "P K S")
-        kolomTtd.forEachIndexed { indeks, nama ->
-            val x = MARGIN + 190f + indeks * 120f
-            kanvas.drawLine(x, y + 44f, x + 100f, y + 44f, garis)
-            kanvas.drawText(nama, x, y + 54f, kecil)
+        kanvas.drawText("TRANSPORTIR", KIRI + 58f, baris(221f), kecil)
+
+        ResourcesCompat.getDrawable(context.resources, R.drawable.do_stempel, null)?.let { stempel ->
+            stempel.setBounds(
+                stempelKiri.toInt(),
+                stempelAtas.toInt(),
+                (stempelKiri + stempelLebar).toInt(),
+                (stempelAtas + stempelTinggi).toInt(),
+            )
+            stempel.draw(kanvas)
         }
-        y += 76f
 
-        listOf(
-            "PUTIH untuk PKS KIRIM, MERAH untuk PKS TERIMA",
-            "Semua kesusutan yang melebihi toleransi 0,2% di tanggung oleh driver atau pemilik kendaraan",
-            "DO copy, coretan atau palsu jangan dilayani",
-        ).forEachIndexed { indeks, catatan ->
-            kanvas.drawText("- $catatan", MARGIN, y + indeks * 10f, kecil)
+        // Keterangan stempel memang teks, bukan bagian gambar: lebarnya dipaksa
+        // sama dengan contoh (290 dari 320 satuan stempel).
+        val keterangan = teks(19f * stempelTinggi / 214f, tebal = true).apply {
+            color = 0xFFE3141B.toInt()
+            textAlign = Paint.Align.CENTER
         }
-        y += 3 * 10f + 6f
+        val lebarTarget = 290f * stempelLebar / 320f
+        val lebarAsli = keterangan.measureText(TEKS_STEMPEL)
+        if (lebarAsli > 0f) keterangan.textScaleX = lebarTarget / lebarAsli
         kanvas.drawText(
-            "PRATINJAU LOKAL — DO resmi diterbitkan server",
-            MARGIN,
-            y,
-            paint(6.5f, tebal = true),
+            TEKS_STEMPEL,
+            stempelKiri + stempelLebar / 2f,
+            stempelAtas + stempelTinggi * 205f / 214f,
+            keterangan,
         )
+
+        // Tanda tangan menimpa stempel, sama seperti dokumen aslinya. Jalurnya
+        // disimpan di res/raw, bukan vector drawable: AAPT menolak string
+        // pathData sebesar ini ("STRING_TOO_LARGE") dan hasilnya jadi kosong.
+        //
+        // Penskalaan memakai batas tinta, bukan viewBox: berkas SVG-nya punya
+        // ruang kosong lebar sehingga tanda tangan tampil kecil kalau seluruh
+        // kanvasnya ikut diskalakan.
+        val jalur = jalurTandaTangan(context)
+        val tinta = RectF().also { jalur.computeBounds(it, true) }
+        val sasaran = RectF(
+            stempelKiri - stempelLebar * 0.04f,
+            stempelAtas + stempelTinggi * 0.18f,
+            stempelKiri + stempelLebar * 0.96f,
+            stempelAtas + stempelTinggi * 1.20f,
+        )
+        kanvas.withSave {
+            val skala = Matrix()
+            skala.setRectToRect(tinta, sasaran, Matrix.ScaleToFit.CENTER)
+            kanvas.concat(skala)
+            kanvas.drawPath(jalur, catTandaTangan)
+        }
+
+        // ── Kaki: tiga kolom tanda tangan ──
+        kanvas.drawLine(KIRI, baris(285f), KANAN, baris(285f), garisTebal)
+
+        val kakiTebal = teks(7f, tebal = true)
+        kanvas.drawText("PT ADILA PARIS NUSANTARA", KIRI + 27f, baris(294f), kakiTebal)
+        kakiTebal.textAlign = Paint.Align.CENTER
+        kanvas.drawText("DRIVER", KIRI + 268f, baris(294f), kakiTebal)
+        kakiTebal.textAlign = Paint.Align.LEFT
+        kanvas.drawText("P K S", KIRI + 403f, baris(294f), kakiTebal)
+
+        kanvas.drawText("Notes", KIRI + 65f, baris(304f), teks(6.8f, miring = true))
+        listOf(
+            ": - PUTIH untuk PKS KIRIM, MERAH untuk PKS TERIMA",
+            ": - Semua kesusutan yang melebihi toleransi 0,2% di tanggung oleh driver atau pemilik kendaraan",
+            ": - DO Copy, coretan atau palsu jangan dilayani",
+        ).forEachIndexed { indeks, isiCatatan ->
+            kanvas.drawText(isiCatatan, KIRI + 97f, baris(304f + indeks * 11.7f), catatan)
+        }
+
+        kanvas.drawLine(KIRI, baris(335f), KANAN, baris(335f), garisTebal)
+        kanvas.drawLine(KIRI, baris(346f), KANAN, baris(346f), garisTebal)
     }
 
-    /** Memecah teks agar tidak melewati lebar kolom. */
-    private fun potongTeks(teks: String, lebar: Float, cat: Paint): List<String> {
-        val baris = mutableListOf<String>()
-        var sisa = teks
-        while (sisa.isNotEmpty() && baris.size < 3) {
-            val muat = cat.breakText(sisa, true, lebar, null).coerceAtLeast(1)
-            baris += sisa.take(muat).trim()
-            sisa = sisa.drop(muat)
-        }
-        return baris
+    private var jalurTtd: Path? = null
+
+    private val catTandaTangan = Paint().apply {
+        isAntiAlias = true
+        color = 0xFF111111.toInt()
+        style = Paint.Style.FILL
     }
+
+    /** Jalur tanda tangan dibaca sekali lalu dipakai ulang untuk kedua rangkap. */
+    private fun jalurTandaTangan(context: Context): Path {
+        jalurTtd?.let { return it }
+        val data = context.resources.openRawResource(R.raw.do_ttd_path)
+            .bufferedReader()
+            .use { it.readText() }
+        val jalur = PathParser.createPathFromPathData(data)
+            .apply { fillType = Path.FillType.EVEN_ODD }
+        jalurTtd = jalur
+        return jalur
+    }
+
+    private const val TEKS_STEMPEL = "PT. ADILA PARIS NUSANTARA"
 }
