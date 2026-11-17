@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { SESSION_COOKIE } from "@/lib/session";
 import type { Peran } from "@/lib/constants";
+    // Pendaftaran supir dari aplikasi terjadi sebelum akun ada, jadi tidak
+    // mungkin membawa sesi. Endpoint mobile lain tetap dijaga.
+    pathname === "/api/mobile/daftar" ||
 
 // jose kompatibel dengan edge runtime, jadi proxy bisa memverifikasi JWT
 // sendiri tanpa mengimpor next/headers (ambilSesi hanya untuk server component).

@@ -29,6 +29,16 @@ model User {
   passwordHash String
   peran        String // OWNER | ADMIN | SUPIR
   aktif        Boolean  @default(true)
+
+  /// Akun supir yang mendaftar sendiri lewat aplikasi menunggu verifikasi
+  /// kantor. Akun yang dibuat admin langsung terverifikasi.
+  statusVerifikasi      String    @default("TERVERIFIKASI") // MENUNGGU_VERIFIKASI | TERVERIFIKASI | DITOLAK
+  alasanTolakVerifikasi String?
+  diverifikasiOlehId    String?
+  diverifikasiPada      DateTime?
+  noSim                 String?
+  /// Nopol terakhir yang dipakai supir; mengisi otomatis form Buat DO.
+  nopolTerakhir         String?
   createdAt    DateTime @default(now())
 
   ritSebagaiSupir Rit[]              @relation("SupirRit")
@@ -38,6 +48,8 @@ model User {
   riwayatStatus   RiwayatStatus[]
   settlement      Settlement[]
   pushSubs        PushSubscription[]
+  pengajuan       PengajuanDo[]      @relation("PengajuanSupir")
+  pengajuanDiputus PengajuanDo[]     @relation("PengajuanPemutus")
 
   @@index([peran, aktif])
 }
@@ -103,6 +115,10 @@ model Kontrak {
   /// di src/lib/constants.ts (Kernel 7.500/kg, Shell 1.000/kg).
   tarifSelisihPerKg Int?
 
+  /// Kuota unit angkutan yang boleh berjalan bersamaan atas kontrak ini.
+  /// Dipakai aplikasi supir untuk menghitung sisa slot; null = tanpa batas.
+  unitDiminta Int?
+
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -112,7 +128,8 @@ model Kontrak {
   lokasiTujuan Lokasi  @relation("KontrakTujuan", fields: [lokasiTujuanId], references: [id])
   createdBy    User    @relation("KontrakPembuat", fields: [createdById], references: [id])
 
-  rit Rit[]
+  rit       Rit[]
+  pengajuan PengajuanDo[]
 
   @@index([status])
   @@index([shipperId])
@@ -159,12 +176,18 @@ model Rit {
   slipFisikDiterima Boolean   @default(false)
   slipFisikTanggal  DateTime?
 
+  /// Pengajuan supir yang melahirkan rit ini; kosong untuk DO terbitan kantor.
+  pengajuanId String? @unique
+  /// Berkas DO yang bisa dibuka supir dari aplikasi.
+  doPdfUrl    String?
+
   alasanBatal String?
   catatan     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   kontrak       Kontrak         @relation(fields: [kontrakId], references: [id])
+  pengajuan     PengajuanDo?    @relation(fields: [pengajuanId], references: [id])
   truk          Truk?           @relation(fields: [trukId], references: [id])
   supir         User?           @relation("SupirRit", fields: [supirId], references: [id])
   penimbangan   Penimbangan[]
@@ -330,4 +353,43 @@ model PushSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// Pengajuan DO oleh supir lewat aplikasi Android.
+///
+/// Membalik arah sistem web: di web admin menerbitkan DO lalu menugaskan
+/// supir, di sini supir mengajukan dan kantor memutuskan. Rit baru lahir saat
+/// pengajuan disetujui, dan kuota PO dikunci pada transaksi persetujuan itu
+/// supaya dua approver tidak bisa melewati batas unit.
+model PengajuanDo {
+  id        String @id @default(cuid())
+  kontrakId String
+  supirId   String
+
+  /// Disalin dari isian supir, bukan dibaca ulang dari profil: DO harus
+  /// memuat data orang yang benar-benar membawa muatan hari itu.
+  nama          String
+  nopol         String
+  noSim         String
+  noHp          String
+  fotoSelfieUrl String
+
+  status            String  @default("DIAJUKAN") // DIAJUKAN | DISETUJUI | DITOLAK | KEDALUWARSA
+  alasanTolak       String?
+  diputusOlehId     String?
+  sumberPersetujuan String? // WEB | TELEGRAM
+  pesanTelegramId   String?
+  diputusPada       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  kontrak    Kontrak @relation(fields: [kontrakId], references: [id])
+  supir      User    @relation("PengajuanSupir", fields: [supirId], references: [id])
+  diputusOleh User?  @relation("PengajuanPemutus", fields: [diputusOlehId], references: [id])
+  rit        Rit?
+
+  @@index([status])
+  @@index([supirId, status])
+  @@index([kontrakId, status])
 }

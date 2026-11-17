@@ -1,6 +1,40 @@
 // Sumber kebenaran tunggal untuk semua nilai "enum", label, dan mesin status.
 // Jangan menulis string status secara literal di tempat lain.
 
+// ─────────────────── Aplikasi supir: verifikasi & pengajuan ───────────────────
+
+export const STATUS_VERIFIKASI = ["MENUNGGU_VERIFIKASI", "TERVERIFIKASI", "DITOLAK"] as const;
+export type StatusVerifikasi = (typeof STATUS_VERIFIKASI)[number];
+
+export const STATUS_VERIFIKASI_LABEL: Record<StatusVerifikasi, string> = {
+  MENUNGGU_VERIFIKASI: "Menunggu verifikasi",
+  TERVERIFIKASI: "Terverifikasi",
+  DITOLAK: "Ditolak",
+};
+
+export const STATUS_PENGAJUAN = ["DIAJUKAN", "DISETUJUI", "DITOLAK", "KEDALUWARSA"] as const;
+export type StatusPengajuan = (typeof STATUS_PENGAJUAN)[number];
+
+export const STATUS_PENGAJUAN_LABEL: Record<StatusPengajuan, string> = {
+  DIAJUKAN: "Menunggu persetujuan",
+  DISETUJUI: "Disetujui",
+  DITOLAK: "Ditolak",
+  KEDALUWARSA: "Kedaluwarsa",
+};
+
+export const STATUS_PENGAJUAN_WARNA: Record<StatusPengajuan, "oranye" | "sukses" | "bahaya" | "netral"> = {
+  DIAJUKAN: "oranye",
+  DISETUJUI: "sukses",
+  DITOLAK: "bahaya",
+  KEDALUWARSA: "netral",
+};
+
+/** Pengajuan yang tidak diputus selama ini otomatis kedaluwarsa (SPEC-ANDROID §12). */
+export const KEDALUWARSA_PENGAJUAN_JAM = 24;
+
+export const SUMBER_PERSETUJUAN = ["WEB", "TELEGRAM"] as const;
+export type SumberPersetujuan = (typeof SUMBER_PERSETUJUAN)[number];
+
 // ─────────────────────────────── Peran ───────────────────────────────
 
 export const PERAN = ["OWNER", "ADMIN", "SUPIR"] as const;

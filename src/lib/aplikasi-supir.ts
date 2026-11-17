@@ -5,6 +5,7 @@ import {
   STATUS_RIT_BERJALAN,
   STATUS_RIT_LABEL,
   type StatusRit,
+  type StatusVerifikasi,
 } from "./constants";
 
 // Pemantauan sisi perangkat supir: apakah aplikasi di HP masih hidup, masih
@@ -67,10 +68,23 @@ export type RingkasanApp = {
   kendalaTerbuka: number;
 };
 
+export type SupirMenungguVerifikasi = {
+  id: string;
+  nama: string;
+  hp: string;
+  noSim: string | null;
+  nopolTerakhir: string | null;
+  statusVerifikasi: StatusVerifikasi;
+  alasanTolak: string | null;
+  mendaftarPada: string;
+};
+
 export type StatusAplikasiSupir = {
   diperbaruiPada: string;
   ringkasan: RingkasanApp;
   supir: BarisSupirApp[];
+  /** Akun yang mendaftar sendiri dan belum diputus kantor. */
+  verifikasi: SupirMenungguVerifikasi[];
 };
 
 /** Lubang terbesar antar titik berurutan; null bila titiknya kurang dari dua. */
@@ -187,9 +201,23 @@ export async function hitungStatusAplikasiSupir(): Promise<StatusAplikasiSupir> 
     };
   });
 
-  const [titik24Jam, foto24Jam] = await Promise.all([
+  const [titik24Jam, foto24Jam, verifikasi] = await Promise.all([
     db.titikGps.count({ where: { waktu: { gte: batas24Jam } } }),
     db.foto.count({ where: { waktu: { gte: batas24Jam } } }),
+    db.user.findMany({
+      where: { peran: "SUPIR", statusVerifikasi: { in: ["MENUNGGU_VERIFIKASI", "DITOLAK"] } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        nama: true,
+        hp: true,
+        noSim: true,
+        nopolTerakhir: true,
+        statusVerifikasi: true,
+        alasanTolakVerifikasi: true,
+        createdAt: true,
+      },
+    }),
   ]);
 
   const ringkasan: RingkasanApp = {
@@ -211,5 +239,15 @@ export async function hitungStatusAplikasiSupir(): Promise<StatusAplikasiSupir> 
     diperbaruiPada: new Date(sekarang).toISOString(),
     ringkasan,
     supir: baris,
+    verifikasi: verifikasi.map((v) => ({
+      id: v.id,
+      nama: v.nama,
+      hp: v.hp,
+      noSim: v.noSim,
+      nopolTerakhir: v.nopolTerakhir,
+      statusVerifikasi: v.statusVerifikasi as StatusVerifikasi,
+      alasanTolak: v.alasanTolakVerifikasi,
+      mendaftarPada: v.createdAt.toISOString(),
+    })),
   };
 }
