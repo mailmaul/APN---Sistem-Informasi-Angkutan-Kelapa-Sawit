@@ -52,6 +52,7 @@ export async function GET() {
       shipper: k.shipper.nama,
       jenisBarang: k.jenisBarang,
       lokasiAsal: k.lokasiAsal.nama,
+      lokasiTujuan: k.lokasiTujuan.nama,
       // Kontrak tanpa kuota (0) dikirim sebagai angka besar: aplikasi hanya
       // mengenal "sisa unit", dan tanpa batas berarti selalu ada sisa.
       unitDiminta: k.unitDiminta > 0 ? k.unitDiminta : 999,

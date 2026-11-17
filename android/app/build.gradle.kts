@@ -29,9 +29,23 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
-        // Endpoint api/mobile/* masih dikerjakan server. Selama false, seluruh
-        // alur supir dilayani SumberMobilePalsu (login tetap ke server asli).
-        buildConfigField("Boolean", "MOBILE_API_SIAP", "false")
+        // Endpoint api/mobile/* sudah hidup di backend, jadi aplikasi memakai
+        // data sungguhan. Setel false untuk kembali ke SumberMobilePalsu.
+        buildConfigField("Boolean", "MOBILE_API_SIAP", "true")
+    }
+
+    // Kunci rilis tidak pernah masuk repo: jalurnya dibaca dari local.properties.
+    // Tanpa kunci itu, APK rilis tetap terbentuk tetapi tanpa tanda tangan.
+    val berkasKunci = localProperties.getProperty("RELEASE_STORE_FILE")?.let(::file)
+    signingConfigs {
+        if (berkasKunci?.exists() == true) {
+            create("rilis") {
+                storeFile = berkasKunci
+                storePassword = localProperties.getProperty("RELEASE_STORE_PASSWORD")
+                keyAlias = localProperties.getProperty("RELEASE_KEY_ALIAS")
+                keyPassword = localProperties.getProperty("RELEASE_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -42,6 +56,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("rilis")
         }
     }
 

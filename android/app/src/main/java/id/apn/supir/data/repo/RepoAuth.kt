@@ -7,6 +7,8 @@ import id.apn.supir.data.jaringan.SesiStore
 import id.apn.supir.data.jaringan.panggil
 import id.apn.supir.data.lokal.BasisDataApn
 import id.apn.supir.data.lokal.Preferensi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -55,6 +57,8 @@ class RepoAuth @Inject constructor(
         panggil { api.keluar() }
         sesi.hapus()
         preferensi.simpanPengajuanAktif(null)
-        basisData.clearAllTables()
+        // clearAllTables() memblokir, dan Room menolak dipanggil dari main
+        // thread — tanpa perpindahan ini, menekan Keluar menutup aplikasi.
+        withContext(Dispatchers.IO) { basisData.clearAllTables() }
     }
 }
