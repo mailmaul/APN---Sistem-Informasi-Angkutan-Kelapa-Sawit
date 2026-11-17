@@ -54,7 +54,9 @@ export async function GET() {
       lokasiBongkar: rit.kontrak.lokasiTujuan.nama,
       alamatBongkar: rit.kontrak.lokasiTujuan.alamat,
       shipper: rit.kontrak.shipper.nama,
-      doPdfUrl: rit.doPdfUrl,
+      // Setiap rit punya DO: berkasnya dibuat saat diminta, jadi tidak perlu
+      // menunggu kolom doPdfUrl terisi untuk bisa membukanya dari aplikasi.
+      doPdfUrl: rit.doPdfUrl ?? `api/do/${rit.id}.pdf`,
       kuantitasKg: rit.truk?.kapasitas || null,
       tibaMuat: rit.tibaMuat?.toISOString() ?? null,
       selesaiMuat: rit.selesaiMuat?.toISOString() ?? null,
