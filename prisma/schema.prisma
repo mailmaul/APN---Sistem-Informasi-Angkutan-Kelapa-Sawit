@@ -37,8 +37,12 @@ model User {
   diverifikasiOlehId    String?
   diverifikasiPada      DateTime?
   noSim                 String?
+  fotoSimUrl            String?
   /// Nopol terakhir yang dipakai supir; mengisi otomatis form Buat DO.
   nopolTerakhir         String?
+  /// Dipakai jalur persetujuan Telegram dan push FCM; keduanya menyusul.
+  telegramId            String?
+  fcmToken              String?
   createdAt    DateTime @default(now())
 
   ritSebagaiSupir Rit[]              @relation("SupirRit")
@@ -116,8 +120,9 @@ model Kontrak {
   tarifSelisihPerKg Int?
 
   /// Kuota unit angkutan yang boleh berjalan bersamaan atas kontrak ini.
-  /// Dipakai aplikasi supir untuk menghitung sisa slot; null = tanpa batas.
-  unitDiminta Int?
+  /// 0 berarti belum diisi dan diperlakukan sebagai tanpa batas, supaya
+  /// kontrak lama tidak mendadak menolak pengajuan.
+  unitDiminta Int @default(0)
 
   createdById String
   createdAt   DateTime @default(now())

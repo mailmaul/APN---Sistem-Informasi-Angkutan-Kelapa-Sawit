@@ -63,7 +63,8 @@ export async function POST(req: NextRequest) {
   });
   if (!kontrak) return galat("PO tidak ditemukan", 404);
   if (kontrak.status !== "AKTIF") return galat("PO sudah tidak aktif", 409);
-  if (kontrak.unitDiminta !== null && (await hitungTerpakai(kontrak.id)) >= kontrak.unitDiminta) {
+  // Kuota 0 berarti kontrak belum dibatasi, jadi pengajuan selalu boleh masuk.
+  if (kontrak.unitDiminta > 0 && (await hitungTerpakai(kontrak.id)) >= kontrak.unitDiminta) {
     return galat("Kuota PO sudah penuh", 409);
   }
 

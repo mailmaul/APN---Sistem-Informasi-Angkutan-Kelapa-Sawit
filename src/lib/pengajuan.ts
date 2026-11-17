@@ -15,14 +15,6 @@ import { kirimNotifikasi, kirimKePeran } from "./push";
 // bersamaan karena itu tidak bisa membuat 10 unit jadi 13 — yang kalah
 // menerima "kuota sudah penuh".
 
-export type SisaKuota = {
-  unitDiminta: number | null;
-  /** Rit berjalan + pengajuan yang belum diputus. */
-  terpakai: number;
-  /** null berarti kontrak tidak dibatasi kuota. */
-  sisa: number | null;
-};
-
 /** Slot terpakai = rit yang masih berjalan + pengajuan yang masih menunggu. */
 export async function hitungTerpakai(kontrakId: string): Promise<number> {
   const [ritBerjalan, menunggu] = await Promise.all([
@@ -54,7 +46,7 @@ export type BarisPengajuan = {
     jenisBarang: string;
     lokasiAsal: string;
     lokasiTujuan: string;
-    unitDiminta: number | null;
+    unitDiminta: number;
     unitTerpakai: number;
   };
 };
@@ -230,7 +222,7 @@ export async function setujuiPengajuan(
     // Kuota dihitung ulang di dalam transaksi: pengajuan ini sendiri tidak
     // dihitung karena statusnya baru berubah di langkah berikutnya.
     const kuota = pengajuan.kontrak.unitDiminta;
-    if (kuota !== null) {
+    if (kuota > 0) {
       const [ritBerjalan, menungguLain] = await Promise.all([
         tx.rit.count({ where: { kontrakId: pengajuan.kontrakId, status: { in: STATUS_RIT_BERJALAN } } }),
         tx.pengajuanDo.count({

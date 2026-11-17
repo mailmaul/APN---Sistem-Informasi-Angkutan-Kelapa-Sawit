@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { SESSION_COOKIE } from "@/lib/session";
 import type { Peran } from "@/lib/constants";
-    // Pendaftaran supir dari aplikasi terjadi sebelum akun ada, jadi tidak
-    // mungkin membawa sesi. Endpoint mobile lain tetap dijaga.
-    pathname === "/api/mobile/daftar" ||
 
 // jose kompatibel dengan edge runtime, jadi proxy bisa memverifikasi JWT
 // sendiri tanpa mengimpor next/headers (ambilSesi hanya untuk server component).
@@ -19,6 +16,9 @@ function publik(pathname: string): boolean {
   return (
     JALUR_PUBLIK.includes(pathname) ||
     pathname.startsWith("/api/auth/") ||
+    // Pendaftaran supir dari aplikasi terjadi sebelum akun ada, jadi tidak
+    // mungkin membawa sesi. Endpoint mobile lain tetap dijaga.
+    pathname === "/api/mobile/daftar" ||
     pathname.startsWith("/icons/")
   );
 }
@@ -27,7 +27,13 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (publik(pathname)) return NextResponse.next();
 
-  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  // Browser memakai cookie; aplikasi Android mengirim Authorization: Bearer
+  // karena cookie pada klien non-browser gampang putus tanpa gejala.
+  const otorisasi = req.headers.get("authorization");
+  const token =
+    req.cookies.get(SESSION_COOKIE)?.value ??
+    (otorisasi?.toLowerCase().startsWith("bearer ") ? otorisasi.slice(7).trim() : undefined);
+
   let peran: Peran | null = null;
   if (token) {
     try {

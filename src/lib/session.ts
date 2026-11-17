@@ -17,27 +17,25 @@ export type Sesi = {
   nama: string;
 };
 
-export async function buatSesi(klaim: Sesi): Promise<void> {
-  const token = await new SignJWT({ peran: klaim.peran, nama: klaim.nama })
+/**
+ * Tanda tangani klaim jadi JWT.
+ *
+ * Dipisah dari buatSesi() karena aplikasi Android menyimpan token sendiri di
+ * penyimpanan terenkripsi dan mengirimnya lewat header Authorization. Cookie
+ * pada klien non-browser rapuh: redirect nginx, perubahan SameSite, atau
+ * pembersihan cookie memutus sesi 30 hari tanpa gejala.
+ */
+export async function tandatanganiToken(klaim: Sesi): Promise<string> {
+  return new SignJWT({ peran: klaim.peran, nama: klaim.nama })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(klaim.sub)
     .setIssuedAt()
     .setExpirationTime(`${MAX_AGE_SECONDS}s`)
     .sign(secret);
-
-  const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: MAX_AGE_SECONDS,
-  });
 }
 
-export async function ambilSesi(): Promise<Sesi | null> {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  if (!token) return null;
+/** Verifikasi token mentah. Dipakai jalur Bearer dan pembaca cookie. */
+export async function bacaToken(token: string): Promise<Sesi | null> {
   try {
     const { payload } = await jwtVerify(token, secret);
     return {
@@ -48,6 +46,28 @@ export async function ambilSesi(): Promise<Sesi | null> {
   } catch {
     return null;
   }
+}
+
+/** Buat sesi: set cookie untuk browser, kembalikan token untuk aplikasi. */
+export async function buatSesi(klaim: Sesi): Promise<string> {
+  const token = await tandatanganiToken(klaim);
+
+  const store = await cookies();
+  store.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: MAX_AGE_SECONDS,
+  });
+
+  return token;
+}
+
+export async function ambilSesi(): Promise<Sesi | null> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  return bacaToken(token);
 }
 
 export async function hapusSesi(): Promise<void> {

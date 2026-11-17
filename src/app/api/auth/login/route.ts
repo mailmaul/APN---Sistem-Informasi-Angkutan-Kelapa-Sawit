@@ -34,9 +34,13 @@ export async function POST(req: NextRequest) {
   if (!user || !user.aktif) return gagal;
   if (!(await bcrypt.compare(parsed.data.password, user.passwordHash))) return gagal;
 
-  await buatSesi({ sub: user.id, peran: user.peran as Peran, nama: user.nama });
+  // Token dikembalikan juga di badan: aplikasi Android menyimpannya di
+  // penyimpanan terenkripsi dan mengirimnya sebagai Bearer; browser tetap
+  // memakai cookie yang disetel di sini.
+  const token = await buatSesi({ sub: user.id, peran: user.peran as Peran, nama: user.nama });
 
   return NextResponse.json({
     user: { id: user.id, nama: user.nama, peran: user.peran },
+    token,
   });
 }

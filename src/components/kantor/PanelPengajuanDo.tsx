@@ -46,7 +46,7 @@ function Baris({
 
   const menunggu = pengajuan.status === "DIAJUKAN";
   const kuota = pengajuan.kontrak.unitDiminta;
-  const sisa = kuota === null ? null : Math.max(0, kuota - pengajuan.kontrak.unitTerpakai);
+  const sisa = kuota > 0 ? Math.max(0, kuota - pengajuan.kontrak.unitTerpakai) : null;
 
   return (
     <div className="flex flex-col gap-3 border-b px-4 py-3 last:border-b-0">
